@@ -1,5 +1,6 @@
 import express from 'express';
 import { connectToWhatsApp } from './whatsapp';
+import { connectDB } from './db';
 import router from './routes';
 
 const PORT = process.env.PORT ?? 3000;
@@ -12,4 +13,5 @@ app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
 
+connectDB().catch(console.error);
 connectToWhatsApp().catch(console.error);
