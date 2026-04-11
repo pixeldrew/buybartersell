@@ -11,6 +11,7 @@ import { Boom } from '@hapi/boom';
 import path from 'path';
 import readline from 'readline';
 import P from 'pino';
+import { startWatcher } from './watcher';
 
 const INVITE_LINK_RE = /chat\.whatsapp\.com\/[A-Za-z0-9]+/;
 
@@ -47,6 +48,8 @@ export async function connectToWhatsApp(): Promise<void> {
     const code = await sock.requestPairingCode(sanitized);
     console.log(`\nPairing code: ${code}\nEnter this code in WhatsApp > Linked Devices > Link a Device > Link with phone number\n`);
   }
+
+  startWatcher(sock);
 
   sock.ev.on('creds.update', saveCreds);
   sock.ev.on('messages.upsert', ({ messages, type }) => {
