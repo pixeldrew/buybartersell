@@ -16,5 +16,6 @@ app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
 
-connectDB().catch(console.error);
-connectToWhatsApp().catch(console.error);
+connectDB()
+  .then(() => connectToWhatsApp())
+  .catch(console.error);
