@@ -49,6 +49,11 @@ function extractConversationLinks(msg: proto.IWebMessageInfo): string[] {
 }
 
 type MediaSpec = { check: (m: proto.IMessage) => boolean; type: string; ext: string };
+type PhoneBookContact = {
+  id: string;
+  phoneNumber?: string;
+  lid?: string;
+};
 
 const MEDIA_SPECS: MediaSpec[] = [
   { check: m => !!m.imageMessage,    type: 'image',    ext: '.jpg'  },
@@ -93,6 +98,42 @@ async function downloadMedia(
   return files;
 }
 
+export type PhoneBook = {
+  get: (jid: string) => string | undefined;
+  indexContact: (contact: PhoneBookContact) => void;
+  indexParticipant: (participant: PhoneBookContact) => void;
+};
+
+function barePhoneFromJid(jid: string | undefined): string | undefined {
+  if (!jid) return undefined;
+  const [user, server] = jid.split('@');
+  if (!user || server !== 's.whatsapp.net') return undefined;
+  return /^\d+$/.test(user) ? user : undefined;
+}
+
+export function createPhoneBook(): PhoneBook {
+  const entries = new Map<string, string>();
+
+  function indexContact(contact: PhoneBookContact): void {
+    const phone = barePhoneFromJid(contact.phoneNumber) ?? barePhoneFromJid(contact.id);
+    if (!phone) return;
+
+    entries.set(contact.id, phone);
+    if (contact.phoneNumber) entries.set(contact.phoneNumber, phone);
+    if (contact.lid) entries.set(contact.lid, phone);
+  }
+
+  return {
+    get: (jid) => entries.get(jid),
+    indexContact,
+    indexParticipant: indexContact,
+  };
+}
+
+export function resolveSenderPhoneNumber(sender: string, phoneBook: Pick<PhoneBook, 'get'>): string | null {
+  return barePhoneFromJid(sender) ?? phoneBook.get(sender) ?? null;
+}
+
 // ─── Watcher ──────────────────────────────────────────────────────────────────
 
 export function startWatcher(sock: WASocket): void {
@@ -109,28 +150,29 @@ export function startWatcher(sock: WASocket): void {
   let groupMetadata: GroupMetadata | null = null;
 
   // JID/LID → bare phone number  (e.g. "15551234567")
-  const phoneBook = new Map<string, string>();
+  const phoneBook = createPhoneBook();
 
-  function indexParticipant(p: GroupParticipant): void {
-    if (!p.phoneNumber) return;
-    const phone = p.phoneNumber.split('@')[0];
-    phoneBook.set(p.id, phone);
-    if (p.lid) phoneBook.set(p.lid, phone);
+  function cacheGroupMetadata(meta: GroupMetadata): void {
+    groupMetadata = meta;
+    meta.participants.forEach(phoneBook.indexParticipant);
+    console.log(`[watcher] cached metadata for ${meta.subject} (${meta.participants.length} participants)`);
   }
+
+  sock.groupMetadata(groupJid)
+    .then(cacheGroupMetadata)
+    .catch(err => console.error('[watcher] failed to fetch initial group metadata:', (err as Error).message));
 
   // Primary source: full metadata received during initial group sync
   sock.ev.on('groups.upsert', (groups) => {
     const meta = groups.find(g => g.id === groupJid);
     if (!meta) return;
-    groupMetadata = meta;
-    meta.participants.forEach(indexParticipant);
-    console.log(`[watcher] cached metadata for ${meta.subject} (${meta.participants.length} participants)`);
+    cacheGroupMetadata(meta);
   });
 
   // Incremental updates: participants added, removed, promoted, demoted
   sock.ev.on('group-participants.update', (update) => {
     if (update.id !== groupJid) return;
-    update.participants.forEach(indexParticipant);
+    update.participants.forEach(phoneBook.indexParticipant);
     // Reflect the change in the cached metadata if we have it
     if (groupMetadata) {
       if (update.action === 'add') {
@@ -153,10 +195,7 @@ export function startWatcher(sock: WASocket): void {
   // Fallback: contacts received outside of group sync (fills gaps)
   sock.ev.on('contacts.upsert', (contacts) => {
     for (const contact of contacts) {
-      if (!contact.phoneNumber) continue;
-      const phone = contact.phoneNumber.split('@')[0];
-      phoneBook.set(contact.id, phone);
-      if (contact.lid) phoneBook.set(contact.lid, phone);
+      phoneBook.indexContact(contact);
     }
   });
 
@@ -169,7 +208,7 @@ export function startWatcher(sock: WASocket): void {
       const text        = extractText(msg);
       const messageId   = msg.key.id ?? `${Date.now()}-${randomUUID()}`;
       const sender      = msg.key.participant ?? msg.key.remoteJid ?? 'unknown';
-      const phoneNumber = phoneBook.get(sender) ?? null;
+      const phoneNumber = resolveSenderPhoneNumber(sender, phoneBook);
       const links       = extractConversationLinks(msg);
       const timestamp   = msg.messageTimestamp
         ? new Date(Number(msg.messageTimestamp) * 1000)

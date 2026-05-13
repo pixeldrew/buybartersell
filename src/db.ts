@@ -72,9 +72,18 @@ export async function saveMessage(data: {
   mediaFiles?:  IMediaFile[];
   links?:       string[];
 }): Promise<void> {
+  const { phoneNumber, ...insertData } = data;
   await Message.updateOne(
     { messageId: data.messageId },
-    { $setOnInsert: { ...data, analysis: null, mediaFiles: data.mediaFiles ?? [] } },
+    {
+      ...(phoneNumber ? { $set: { phoneNumber } } : {}),
+      $setOnInsert: {
+        ...insertData,
+        analysis: null,
+        mediaFiles: data.mediaFiles ?? [],
+        links: data.links ?? [],
+      },
+    },
     { upsert: true },
   );
 }

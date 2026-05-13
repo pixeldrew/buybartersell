@@ -5,6 +5,7 @@ A Node.js/TypeScript service that connects a WhatsApp account via [Baileys](http
 ## Requirements
 
 - Node.js 18+
+- MongoDB
 - A WhatsApp account (used as the bot identity)
 - The bot account must be a **group admin** in any group where moderation is active
 
@@ -16,9 +17,9 @@ npm run build
 npm start
 ```
 
-On first run you will be prompted for a phone number. A pairing code is then printed — enter it in WhatsApp under **Settings → Linked Devices → Link a Device → Link with phone number**. Credentials are saved to `auth_info/` and reused on subsequent starts.
+On first run you will be prompted for a phone number. A pairing code is then printed — enter it in WhatsApp under **Settings → Linked Devices → Link a Device → Link with phone number**. Credentials are saved in MongoDB's `baileys_auth` collection and reused on subsequent starts.
 
-To re-authenticate, delete the `auth_info/` directory and restart.
+To re-authenticate, clear the `baileys_auth` collection and restart.
 
 ## Development
 
