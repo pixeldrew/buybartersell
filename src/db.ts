@@ -20,25 +20,34 @@ export interface IMediaFile {
 }
 
 export interface IMessage extends Document {
-  messageId:  string;
-  groupId:    string;
-  sender:     string;
-  text:       string;
-  timestamp:  Date;
-  analysis:   GearAnalysis | null;
-  mediaFiles: IMediaFile[];
+  messageId:   string;
+  groupId:     string;
+  sender:      string;
+  phoneNumber: string | null;
+  text:        string;
+  timestamp:   Date;
+  analysis:    GearAnalysis | null;
+  mediaFiles:  IMediaFile[];
+  links:       string[];
 }
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
+const MediaFileSchema = new Schema<IMediaFile>(
+  { filename: String, type: String, path: String },
+  { _id: false },
+);
+
 const MessageSchema = new Schema<IMessage>({
-  messageId:  { type: String, required: true, unique: true, index: true },
-  groupId:    { type: String, required: true, index: true },
-  sender:     { type: String, required: true },
-  text:       { type: String, required: true },
-  timestamp:  { type: Date, required: true, index: true },
-  analysis:   { type: Schema.Types.Mixed, default: null },
-  mediaFiles: { type: [{ filename: String, type: String, path: String }], default: [] },
+  messageId:   { type: String, required: true, unique: true, index: true },
+  groupId:     { type: String, required: true, index: true },
+  sender:      { type: String, required: true },
+  phoneNumber: { type: String, default: null },
+  text:        { type: String, required: true },
+  timestamp:   { type: Date, required: true, index: true },
+  analysis:    { type: Schema.Types.Mixed, default: null },
+  mediaFiles:  { type: [MediaFileSchema], default: [] },
+  links:       { type: [String], default: [] },
 });
 
 export const Message: Model<IMessage> = mongoose.model<IMessage>('Message', MessageSchema);
@@ -54,12 +63,14 @@ export async function connectDB(): Promise<void> {
 // ─── Write helpers ────────────────────────────────────────────────────────────
 
 export async function saveMessage(data: {
-  messageId:   string;
-  groupId:     string;
-  sender:      string;
-  text:        string;
-  timestamp:   Date;
-  mediaFiles?: IMediaFile[];
+  messageId:    string;
+  groupId:      string;
+  sender:       string;
+  phoneNumber?: string | null;
+  text:         string;
+  timestamp:    Date;
+  mediaFiles?:  IMediaFile[];
+  links?:       string[];
 }): Promise<void> {
   await Message.updateOne(
     { messageId: data.messageId },
