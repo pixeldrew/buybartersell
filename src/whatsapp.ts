@@ -11,12 +11,17 @@ import { Boom } from '@hapi/boom';
 import path from 'path';
 import readline from 'readline';
 import P from 'pino';
+import NodeCache from 'node-cache';
 import { startWatcher } from './watcher';
+import { startJoinApproval } from './join-approval';
+
+const AUTH_DIR = path.join(process.cwd(), 'auth_info');
 
 const INVITE_LINK_RE = /chat\.whatsapp\.com\/[A-Za-z0-9]+/;
 
-const AUTH_DIR = path.join(process.cwd(), 'auth_info');
 const logger = P({ level: 'silent' });
+
+const groupCache = new NodeCache({stdTTL: 600})
 
 let sock: WASocket | null = null;
 let isConnected = false;
@@ -37,8 +42,10 @@ export async function connectToWhatsApp(): Promise<void> {
       keys: makeCacheableSignalKeyStore(state.keys, logger),
     },
     logger,
+    cachedGroupMetadata: async (jid) => groupCache.get(jid),
     printQRInTerminal: false,
-    browser: Browsers.windows('chrome'),
+    browser: Browsers.macOS("Safari"),
+    markOnlineOnConnect: false,
   });
 
   // Request pairing code if not registered
@@ -50,6 +57,7 @@ export async function connectToWhatsApp(): Promise<void> {
   }
 
   startWatcher(sock);
+  startJoinApproval(sock);
 
   sock.ev.on('creds.update', saveCreds);
   sock.ev.on('messages.upsert', ({ messages, type }) => {
