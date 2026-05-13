@@ -68,3 +68,9 @@ The service listens to all incoming group messages. If a message contains a What
 > **Note:** Removal of the offending user is implemented but commented out in `src/whatsapp.ts`. Uncomment `sock.groupParticipantsUpdate(...)` to enable it.
 
 The bot account must be an admin of the group for both the deletion and removal to succeed.
+
+## Terms Approval Gate
+
+Visit `/admin/dashboard` to enable or disable the terms approval gate for join requests. The setting is saved in MongoDB's `admin_settings` collection and defaults to disabled.
+
+When enabled, join requests for `WATCH_GROUP_ID` receive a Terms & Conditions link and are approved only after accepting. When disabled, the bot ignores join requests so WhatsApp or human admins can handle them manually.

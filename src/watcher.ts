@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
-import { type WASocket, type proto, type WAMessage, type GroupMetadata, type GroupParticipant, downloadMediaMessage } from '@whiskeysockets/baileys';
+import { proto, type WASocket, type WAMessage, type GroupMetadata, type GroupParticipant, downloadMediaMessage } from '@whiskeysockets/baileys';
 import { saveMessage, type IMediaFile } from './db';
 
 // ─── Media directory ──────────────────────────────────────────────────────────
@@ -10,6 +10,10 @@ const MEDIA_DIR = path.resolve(process.env.MEDIA_DIR ?? './media');
 fs.mkdirSync(MEDIA_DIR, { recursive: true });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+export function mediaPathForStorage(filePath: string): string {
+  return path.relative(process.cwd(), filePath);
+}
 
 function extractText(msg: proto.IWebMessageInfo): string {
   const m = msg.message;
@@ -54,6 +58,13 @@ type PhoneBookContact = {
   phoneNumber?: string;
   lid?: string;
 };
+type CollationGroup = CollatedMessageEntry & {
+  order: number;
+};
+type BufferedAlbum = {
+  messages: Map<string, proto.IWebMessageInfo>;
+  timer: ReturnType<typeof setTimeout>;
+};
 
 const MEDIA_SPECS: MediaSpec[] = [
   { check: m => !!m.imageMessage,    type: 'image',    ext: '.jpg'  },
@@ -62,6 +73,12 @@ const MEDIA_SPECS: MediaSpec[] = [
   { check: m => !!m.stickerMessage,  type: 'sticker',  ext: '.webp' },
   { check: m => !!m.documentMessage, type: 'document', ext: ''      },
 ];
+const ALBUM_COLLATE_MS = Number(process.env.MEDIA_ALBUM_COLLATE_MS ?? 1500);
+
+function hasMedia(msg: proto.IWebMessageInfo): boolean {
+  const m = msg.message;
+  return !!m && MEDIA_SPECS.some(spec => spec.check(m));
+}
 
 async function downloadMedia(
   msg: proto.IWebMessageInfo,
@@ -89,7 +106,7 @@ async function downloadMedia(
       const filename = `${randomUUID()}${ext}`;
       const filePath = path.join(MEDIA_DIR, filename);
       fs.writeFileSync(filePath, buffer);
-      files.push({ filename, type: spec.type, path: filePath });
+      files.push({ filename, type: spec.type, path: mediaPathForStorage(filePath) });
     } catch (err) {
       console.error(`[watcher] Failed to download ${spec.type}:`, (err as Error).message);
     }
@@ -132,6 +149,117 @@ export function createPhoneBook(): PhoneBook {
 
 export function resolveSenderPhoneNumber(sender: string, phoneBook: Pick<PhoneBook, 'get'>): string | null {
   return barePhoneFromJid(sender) ?? phoneBook.get(sender) ?? null;
+}
+
+export interface CollatedMessageEntry {
+  messageId: string;
+  groupId: string;
+  sender: string;
+  phoneNumber: string | null;
+  text: string;
+  timestamp: Date;
+  links: string[];
+  sourceMessages: proto.IWebMessageInfo[];
+}
+
+function timestampFromMessage(msg: proto.IWebMessageInfo): Date {
+  return msg.messageTimestamp
+    ? new Date(Number(msg.messageTimestamp) * 1000)
+    : new Date();
+}
+
+function albumParentId(msg: proto.IWebMessageInfo): string | null {
+  const association = msg.message?.messageContextInfo?.messageAssociation;
+  if (
+    association?.associationType === proto.MessageAssociation.AssociationType.MEDIA_ALBUM &&
+    association.parentMessageKey?.id
+  ) {
+    return association.parentMessageKey.id;
+  }
+
+  return msg.message?.albumMessage && msg.key?.id ? msg.key.id : null;
+}
+
+function albumMessageSortIndex(msg: proto.IWebMessageInfo, fallback: number): number {
+  return msg.message?.messageContextInfo?.messageAssociation?.messageIndex ?? fallback;
+}
+
+function collationKeyForMessage(
+  msg: proto.IWebMessageInfo,
+  groupJid: string,
+): { key: string; messageId: string; sender: string; isAlbum: boolean } {
+  const messageId = msg.key?.id ?? `${Date.now()}-${randomUUID()}`;
+  const parentId = albumParentId(msg);
+  const saveMessageId = parentId ?? messageId;
+  const sender = msg.key?.participant ?? msg.key?.remoteJid ?? 'unknown';
+
+  return {
+    key: parentId
+      ? `album:${groupJid}:${sender}:${saveMessageId}`
+      : `message:${groupJid}:${sender}:${saveMessageId}`,
+    messageId: saveMessageId,
+    sender,
+    isAlbum: !!parentId,
+  };
+}
+
+export function collateMessagesForSave(
+  messages: proto.IWebMessageInfo[],
+  groupJid: string,
+  phoneBook: Pick<PhoneBook, 'get'>,
+): CollatedMessageEntry[] {
+  const groups = new Map<string, CollationGroup>();
+
+  messages.forEach((msg, index) => {
+    if (msg.key?.remoteJid !== groupJid) return;
+
+    const { key: groupKey, messageId, sender } = collationKeyForMessage(msg, groupJid);
+
+    let group = groups.get(groupKey);
+    if (!group) {
+      group = {
+        messageId,
+        groupId: groupJid,
+        sender,
+        phoneNumber: resolveSenderPhoneNumber(sender, phoneBook),
+        text: '',
+        timestamp: timestampFromMessage(msg),
+        links: [],
+        sourceMessages: [],
+        order: index,
+      };
+      groups.set(groupKey, group);
+    }
+
+    const text = extractText(msg).trim();
+    const links = extractConversationLinks(msg);
+    const carriesContent = text || links.length > 0 || hasMedia(msg);
+
+    group.links.push(...links);
+    if (carriesContent) group.sourceMessages.push(msg);
+  });
+
+  return Array.from(groups.values())
+    .map((group) => {
+      const uniqueLinks = Array.from(new Set(group.links));
+      const sourceMessages = group.sourceMessages.sort(
+        (a, b) => albumMessageSortIndex(a, 0) - albumMessageSortIndex(b, 0),
+      );
+      return {
+        messageId: group.messageId,
+        groupId: group.groupId,
+        sender: group.sender,
+        phoneNumber: group.phoneNumber,
+        text: sourceMessages.map(msg => extractText(msg).trim()).filter(Boolean).join('\n\n'),
+        timestamp: group.timestamp,
+        links: uniqueLinks,
+        sourceMessages,
+        order: group.order,
+      };
+    })
+    .filter(entry => entry.text || entry.links.length > 0 || entry.sourceMessages.some(hasMedia))
+    .sort((a, b) => a.order - b.order)
+    .map(({ order: _order, ...entry }) => entry);
 }
 
 // ─── Watcher ──────────────────────────────────────────────────────────────────
@@ -202,23 +330,61 @@ export function startWatcher(sock: WASocket): void {
   sock.ev.on('messages.upsert', ({ messages, type }) => {
     if (type !== 'notify') return;
 
-    for (const msg of messages) {
-      if (msg.key.remoteJid !== groupJid) continue;
+    const immediateMessages: proto.IWebMessageInfo[] = [];
+    const albumBuffers = startWatcherAlbumBuffers.get(sock) ?? new Map<string, BufferedAlbum>();
+    startWatcherAlbumBuffers.set(sock, albumBuffers);
 
-      const text        = extractText(msg);
-      const messageId   = msg.key.id ?? `${Date.now()}-${randomUUID()}`;
-      const sender      = msg.key.participant ?? msg.key.remoteJid ?? 'unknown';
-      const phoneNumber = resolveSenderPhoneNumber(sender, phoneBook);
-      const links       = extractConversationLinks(msg);
-      const timestamp   = msg.messageTimestamp
-        ? new Date(Number(msg.messageTimestamp) * 1000)
-        : new Date();
-
+    function saveEntry(entry: CollatedMessageEntry): void {
       (async () => {
-        const mediaFiles = await downloadMedia(msg, sock);
-        await saveMessage({ messageId, groupId: groupJid, sender, phoneNumber, text, timestamp, mediaFiles, links });
-        console.log(`[watcher] saved ${messageId}${mediaFiles.length ? ` (+${mediaFiles.length} media)` : ''}${links.length ? ` (${links.length} links)` : ''}`);
+        const mediaFiles = (await Promise.all(
+          entry.sourceMessages.map(msg => downloadMedia(msg, sock)),
+        )).flat();
+        await saveMessage({
+          messageId: entry.messageId,
+          groupId: groupJid,
+          sender: entry.sender,
+          phoneNumber: entry.phoneNumber,
+          text: entry.text,
+          timestamp: entry.timestamp,
+          mediaFiles,
+          links: entry.links,
+        });
+        console.log(`[watcher] saved ${entry.messageId}${mediaFiles.length ? ` (+${mediaFiles.length} media)` : ''}${entry.links.length ? ` (${entry.links.length} links)` : ''}`);
       })().catch(err => console.error('[watcher] Error:', err));
+    }
+
+    function flushAlbumBuffer(key: string): void {
+      const buffer = albumBuffers.get(key);
+      if (!buffer) return;
+      albumBuffers.delete(key);
+      collateMessagesForSave(Array.from(buffer.messages.values()), groupJid, phoneBook)
+        .forEach(saveEntry);
+    }
+
+    for (const msg of messages) {
+      if (msg.key?.remoteJid !== groupJid) continue;
+
+      const { key, isAlbum } = collationKeyForMessage(msg, groupJid);
+      if (!isAlbum) {
+        immediateMessages.push(msg);
+        continue;
+      }
+
+      const existing = albumBuffers.get(key);
+      if (existing) clearTimeout(existing.timer);
+
+      const messagesById = existing?.messages ?? new Map<string, proto.IWebMessageInfo>();
+      messagesById.set(msg.key?.id ?? randomUUID(), msg);
+      albumBuffers.set(key, {
+        messages: messagesById,
+        timer: setTimeout(() => flushAlbumBuffer(key), ALBUM_COLLATE_MS),
+      });
+    }
+
+    for (const entry of collateMessagesForSave(immediateMessages, groupJid, phoneBook)) {
+      saveEntry(entry);
     }
   });
 }
+
+const startWatcherAlbumBuffers = new WeakMap<WASocket, Map<string, BufferedAlbum>>();
