@@ -2,14 +2,8 @@ import { GearAnalysis, getUnanalyzedMessagesFromLastHour, updateAnalysis } from 
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const LM_STUDIO_URL = (process.env.LMSTUDIO_URL ?? 'http://localhost:1234') + '/v1/chat/completions';
+const LM_STUDIO_URL = (process.env.LMSTUDIO_URL ?? 'http://localhost:1234') + '/api/v1/chat/completions';
 const MODEL         = process.env.LMSTUDIO_MODEL ?? 'qwen/qwen3-vl-30b-a3b-instruct';
-
-const FALLBACK: GearAnalysis = {
-  brand: null, item: null, size: null, year: null,
-  price: null, currency: null, condition: null,
-  sentiment: 'unrelated',
-};
 
 // ─── Prompt ───────────────────────────────────────────────────────────────────
 
@@ -77,38 +71,40 @@ function buildUserPrompt(text: string, mediaCount: number): string {
 // ─── Analyze ──────────────────────────────────────────────────────────────────
 
 export async function analyzeMessage(text: string, mediaCount = 0): Promise<GearAnalysis> {
-  try {
-    const res = await fetch(LM_STUDIO_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json',
-        "Authorization": `Bearer ${process.env.ORKEY ?? ""}`,
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user',   content: buildUserPrompt(text, mediaCount) },
-        ],
-        temperature: 0.0,
-        response_format: {
-          type: 'json_schema',
-          json_schema: {
-            name:   'gear_analysis',
-            strict: true,
-            schema: RESPONSE_SCHEMA,
-          },
+  const res = await fetch(LM_STUDIO_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json',
+      "Authorization": `Bearer ${process.env.ORKEY ?? ""}`,
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user',   content: buildUserPrompt(text, mediaCount) },
+      ],
+      temperature: 0.0,
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          name:   'gear_analysis',
+          strict: true,
+          schema: RESPONSE_SCHEMA,
         },
-      }),
-      signal: AbortSignal.timeout(30_000),
-    });
+      },
+    }),
+    signal: AbortSignal.timeout(30_000),
+  });
 
-    if (!res.ok) return FALLBACK;
-
-    const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-    return JSON.parse(data.choices[0].message.content) as GearAnalysis;
-  } catch {
-    return FALLBACK;
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`LLM request failed with HTTP ${res.status}${body ? `: ${body}` : ''}`);
   }
+
+  const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) throw new Error('LLM response did not include message content');
+
+  return JSON.parse(content) as GearAnalysis;
 }
 
 // ─── Batch runner ─────────────────────────────────────────────────────────────
@@ -117,8 +113,12 @@ export async function runBatchAnalysis(): Promise<void> {
   const messages = await getUnanalyzedMessagesFromLastHour();
   console.log(`[analyzer] ${messages.length} unanalyzed message(s) in the last hour`);
   for (const msg of messages) {
-    const analysis = await analyzeMessage(msg.text, msg.mediaFiles.length);
-    await updateAnalysis(msg.messageId, analysis);
-    console.log(`[analyzer] ${msg.messageId} → ${analysis.sentiment}`);
+    try {
+      const analysis = await analyzeMessage(msg.text, msg.mediaFiles.length);
+      await updateAnalysis(msg.messageId, analysis);
+      console.log(`[analyzer] ${msg.messageId} → ${analysis.sentiment}`);
+    } catch (err) {
+      console.error(`[analyzer] ${msg.messageId} failed:`, (err as Error).message);
+    }
   }
 }

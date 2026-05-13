@@ -1,5 +1,6 @@
 import { randomBytes } from 'crypto';
 import { type WASocket } from '@whiskeysockets/baileys';
+import { getTermsGateEnabled } from './admin-settings';
 
 interface PendingRequest {
   userJid:   string;
@@ -10,6 +11,14 @@ interface PendingRequest {
 
 const pendingRequests = new Map<string, PendingRequest>();
 let _sock: WASocket | null = null;
+
+type JoinRequestHandler = (userJid: string, groupJid: string) => Promise<void>;
+
+interface JoinRequestHandlerDeps {
+  getTermsGateEnabled: () => Promise<boolean>;
+  sendMessage: (jid: string, message: { text: string }) => Promise<unknown>;
+  appUrl?: string;
+}
 
 function getSock(): WASocket {
   if (!_sock) throw new Error('[join-approval] Socket not initialised');
@@ -45,30 +54,38 @@ export async function rejectRequest(token: string): Promise<void> {
   console.log(`[join-approval] Rejected ${userJid} from ${groupJid}`);
 }
 
-async function handleJoinRequest(userJid: string, groupJid: string): Promise<void> {
-  const token = randomBytes(32).toString('hex');
-  pendingRequests.set(token, {
-    userJid,
-    groupJid,
-    expiresAt: new Date(Date.now() + 86_400_000),
-    used: false,
-  });
+export function createJoinRequestHandler(deps: JoinRequestHandlerDeps): JoinRequestHandler {
+  return async (userJid: string, groupJid: string): Promise<void> => {
+    const termsGateEnabled = await deps.getTermsGateEnabled();
+    if (!termsGateEnabled) {
+      console.log(`[join-approval] Terms gate disabled — ignoring join request from ${userJid}`);
+      return;
+    }
 
-  const appUrl = (process.env.APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
-  const joinUrl = `${appUrl}/api/join/${token}`;
+    const token = randomBytes(32).toString('hex');
+    pendingRequests.set(token, {
+      userJid,
+      groupJid,
+      expiresAt: new Date(Date.now() + 86_400_000),
+      used: false,
+    });
 
-  console.log(`[join-approval] Join request from ${userJid} — sending T&C link`);
+    const appUrl = (deps.appUrl ?? process.env.APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+    const joinUrl = `${appUrl}/api/join/${token}`;
 
-  await getSock().sendMessage(userJid, {
-    text:
-      `Hi! Thanks for requesting to join the group.\n\n` +
-      `Please review and accept our Terms & Conditions to complete your membership:\n` +
-      `${joinUrl}\n\n` +
-      `This link expires in 24 hours.`,
-  });
+    console.log(`[join-approval] Join request from ${userJid} — sending T&C link`);
+
+    await deps.sendMessage(userJid, {
+      text:
+        `Hi! Thanks for requesting to join the group.\n\n` +
+        `Please review and accept our Terms & Conditions to complete your membership:\n` +
+        `${joinUrl}\n\n` +
+        `This link expires in 24 hours.`,
+    });
+  };
 }
 
-export function startJoinApproval(sock: WASocket): void {
+export function startJoinApproval(sock: WASocket, handleJoinRequest?: JoinRequestHandler): void {
   _sock = sock;
 
   const watchGroupId = process.env.WATCH_GROUP_ID;
@@ -80,10 +97,15 @@ export function startJoinApproval(sock: WASocket): void {
   const groupJid = watchGroupId.endsWith('@g.us') ? watchGroupId : `${watchGroupId}@g.us`;
   console.log(`[join-approval] Watching join requests for ${groupJid}`);
 
+  const handler = handleJoinRequest ?? createJoinRequestHandler({
+    getTermsGateEnabled,
+    sendMessage: (jid, message) => getSock().sendMessage(jid, message),
+  });
+
   sock.ev.on('group.join-request', (event) => {
     if (event.id !== groupJid) return;
     if (event.action !== 'created') return;
-    handleJoinRequest(event.participant, groupJid).catch((err) =>
+    handler(event.participant, groupJid).catch((err) =>
       console.error('[join-approval] Error handling join request:', err)
     );
   });
