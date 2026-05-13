@@ -3,7 +3,7 @@ import { GearAnalysis, getUnanalyzedMessagesFromLastHour, updateAnalysis } from 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 const LM_STUDIO_URL = (process.env.LMSTUDIO_URL ?? 'http://localhost:1234') + '/v1/chat/completions';
-const MODEL         = process.env.LMSTUDIO_MODEL ?? 'qwen/qwen3.5-9b';
+const MODEL         = process.env.LMSTUDIO_MODEL ?? 'qwen/qwen3-vl-30b-a3b-instruct';
 
 const FALLBACK: GearAnalysis = {
   brand: null, item: null, size: null, year: null,
@@ -80,7 +80,9 @@ export async function analyzeMessage(text: string, mediaCount = 0): Promise<Gear
   try {
     const res = await fetch(LM_STUDIO_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json',
+        "Authorization": `Bearer ${process.env.ORKEY ?? ""}`,
+      },
       body: JSON.stringify({
         model: MODEL,
         messages: [
