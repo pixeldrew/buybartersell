@@ -1,6 +1,6 @@
 #!/usr/bin/env ts-node
-import { connectDB } from '../src/db';
-import { runBatchAnalysis } from '../src/analyzer';
+import { connectDB } from '../src/db.ts';
+import { runBatchAnalysis } from '../src/analyzer.ts';
 
 async function main(): Promise<void> {
   await connectDB();

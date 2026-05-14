@@ -2,9 +2,9 @@ import dotenvFlow from 'dotenv-flow';
 dotenvFlow.config();
 
 import express from 'express';
-import { connectToWhatsApp } from './whatsapp';
-import { connectDB } from './db';
-import router from './routes';
+import { connectToWhatsApp } from './whatsapp.ts';
+import { connectDB } from './db.ts';
+import router from './routes.ts';
 
 const PORT = process.env.PORT ?? 3000;
 

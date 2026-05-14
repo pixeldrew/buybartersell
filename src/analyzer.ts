@@ -1,4 +1,4 @@
-import { GearAnalysis, getUnanalyzedMessagesFromLastHour, updateAnalysis } from './db';
+import { GearAnalysis, getUnanalyzedMessagesFromLastHour, updateAnalysis } from './db.ts';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 

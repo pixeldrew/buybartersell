@@ -1,7 +1,8 @@
 {
   "compilerOptions": {
+    "rewriteRelativeImportExtensions": true,
+    "module": "node16",
     "target": "ES2020",
-    "module": "CommonJS",
     "lib": ["ES2020"],
     "types": ["node"],
     "rootDir": "./src",
@@ -13,7 +14,7 @@
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
-    "moduleResolution": "node10",
+    "moduleResolution": "node16",
     "ignoreDeprecations": "6.0"
   },
   "include": ["src/**/*"],

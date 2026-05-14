@@ -1,6 +1,6 @@
 import { randomBytes } from 'crypto';
 import { type WASocket } from '@whiskeysockets/baileys';
-import { getTermsGateEnabled } from './admin-settings';
+import { getAppUrl, getTermsGateEnabled } from './admin-settings.ts';
 
 interface PendingRequest {
   userJid:   string;
@@ -17,7 +17,7 @@ type JoinRequestHandler = (userJid: string, groupJid: string) => Promise<void>;
 interface JoinRequestHandlerDeps {
   getTermsGateEnabled: () => Promise<boolean>;
   sendMessage: (jid: string, message: { text: string }) => Promise<unknown>;
-  appUrl?: string;
+  getAppUrl?: () => Promise<string>;
 }
 
 function getSock(): WASocket {
@@ -70,7 +70,7 @@ export function createJoinRequestHandler(deps: JoinRequestHandlerDeps): JoinRequ
       used: false,
     });
 
-    const appUrl = (deps.appUrl ?? process.env.APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+    const appUrl = await (deps.getAppUrl ?? getAppUrl)();
     const joinUrl = `${appUrl}/api/join/${token}`;
 
     console.log(`[join-approval] Join request from ${userJid} — sending T&C link`);
