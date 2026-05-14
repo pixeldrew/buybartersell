@@ -10,9 +10,9 @@ import { Boom } from '@hapi/boom';
 import readline from 'readline';
 import P from 'pino';
 import NodeCache from 'node-cache';
-import { startWatcher } from './watcher';
-import { startJoinApproval } from './join-approval';
-import { useMongoAuthState } from './auth-state';
+import { startWatcher } from './watcher.ts';
+import { startJoinApproval } from './join-approval.ts';
+import { useMongoAuthState } from './auth-state.ts';
 
 const INVITE_LINK_RE = /chat\.whatsapp\.com\/[A-Za-z0-9]+/;
 

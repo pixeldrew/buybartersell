@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import { proto, type WASocket, type WAMessage, type GroupMetadata, type GroupParticipant, downloadMediaMessage } from '@whiskeysockets/baileys';
-import { saveMessage, type IMediaFile } from './db';
+import { saveMessage, type IMediaFile } from './db.ts';
 
 // ─── Media directory ──────────────────────────────────────────────────────────
 

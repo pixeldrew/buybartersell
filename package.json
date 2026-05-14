@@ -2,11 +2,16 @@
   "name": "whatsapp-spam",
   "version": "1.0.0",
   "description": "WhatsApp group messaging bot with REST API and invite-link moderation",
-  "main": "index.js",
+  "workspaces": [
+    "client/admin"
+  ],
   "scripts": {
-    "build": "tsc",
+    "build": "npm run build:server && npm run build:admin",
+    "build:server": "tsc",
+    "build:admin": "npm --workspace whatsapp-spam-admin run build",
     "start": "node dist/index.js",
     "dev": "ts-node --project tsconfig.json src/index.ts",
+    "dev:admin": "npm --workspace whatsapp-spam-admin run dev",
     "prepare": "husky"
   },
   "module": "dist/index.js",
@@ -16,7 +21,7 @@
   ],
   "author": "Drew Foehn <drew@foe.hn>",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "dependencies": {
     "@whiskeysockets/baileys": "^7.0.0-rc.9",
     "dotenv-flow": "^4.1.0",

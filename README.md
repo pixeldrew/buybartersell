@@ -25,7 +25,10 @@ To re-authenticate, clear the `baileys_auth` collection and restart.
 
 ```bash
 npm run dev   # run via ts-node, no build step needed
+npm run dev:admin   # run the Vite admin app with API proxying to PORT/3000
 ```
+
+`npm run build` compiles the backend and builds the React admin app served at `/admin/dashboard`.
 
 ## API
 
@@ -74,3 +77,5 @@ The bot account must be an admin of the group for both the deletion and removal 
 Visit `/admin/dashboard` to enable or disable the terms approval gate for join requests. The setting is saved in MongoDB's `admin_settings` collection and defaults to disabled.
 
 When enabled, join requests for `WATCH_GROUP_ID` receive a Terms & Conditions link and are approved only after accepting. When disabled, the bot ignores join requests so WhatsApp or human admins can handle them manually.
+
+The dashboard also manages the `APP_URL` used in generated terms links. If an `appUrl` setting exists in MongoDB it takes precedence over the shell `APP_URL`; otherwise the shell value is used, falling back to `http://localhost:3000`.

@@ -22,7 +22,7 @@ test('join request handler sends terms link when terms gate is enabled', async (
   const sent: Array<{ jid: string; message: { text?: string } }> = [];
   const handler = createJoinRequestHandler({
     getTermsGateEnabled: async () => true,
-    appUrl: 'https://example.test',
+    getAppUrl: async () => 'https://example.test',
     sendMessage: async (jid, message) => {
       sent.push({ jid, message });
     },

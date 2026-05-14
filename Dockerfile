@@ -4,9 +4,13 @@ FROM node:24-alpine AS builder
 WORKDIR /build
 
 COPY package*.json tsconfig.json ./
-RUN npm ci
+COPY client/ ./client
+RUN npm ci --ignore-scripts
+
 
 COPY src ./src
+COPY client ./client
+
 RUN npm run build
 
 RUN mkdir -p nm_prod/
@@ -24,6 +28,7 @@ WORKDIR /app
 COPY --from=builder /build/dist ./dist
 COPY --from=builder /build/nm_prod/node_modules ./node_modules
 COPY --from=builder /build/package.json ./
+COPY --from=builder /build/client/admin/dist ./client/admin/dist
 
 EXPOSE 3000
 
