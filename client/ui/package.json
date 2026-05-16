@@ -1,0 +1,28 @@
+{
+  "name": "@buybartersell/ui",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./index.css": "./src/index.css",
+    "./lib/utils": "./src/lib/utils.ts",
+    "./components/ui/*": "./src/components/ui/*.tsx"
+  },
+  "dependencies": {
+    "@radix-ui/react-slot": "^1.2.4",
+    "@radix-ui/react-switch": "^1.2.6",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.6.0"
+  },
+  "peerDependencies": {
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "recharts": "^3.8.1"
+  },
+  "peerDependenciesMeta": {
+    "recharts": {
+      "optional": true
+    }
+  }
+}

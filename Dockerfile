@@ -3,10 +3,18 @@ FROM node:24-alpine AS builder
 
 WORKDIR /build
 
+RUN apk add --no-cache imagemagick librsvg
+
 COPY package*.json tsconfig.json ./
-RUN npm ci
+COPY client/ ./client
+COPY bin/ ./bin
+
+RUN npm ci --ignore-scripts
+
 
 COPY src ./src
+COPY client ./client
+
 RUN npm run build
 
 RUN mkdir -p nm_prod/
@@ -21,9 +29,12 @@ ENV PORT=3000
 
 WORKDIR /app
 
+COPY --from=builder /build/bin/analyze.ts ./bin/
 COPY --from=builder /build/dist ./dist
 COPY --from=builder /build/nm_prod/node_modules ./node_modules
 COPY --from=builder /build/package.json ./
+COPY --from=builder /build/client/admin/dist ./client/admin/dist
+COPY --from=builder /build/client/join/dist ./client/join/dist
 
 EXPOSE 3000
 

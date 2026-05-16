@@ -1,6 +1,5 @@
 import makeWASocket, {
   DisconnectReason,
-  useMultiFileAuthState,
   makeCacheableSignalKeyStore,
   fetchLatestBaileysVersion,
   type WASocket,
@@ -8,25 +7,47 @@ import makeWASocket, {
   Browsers,
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
-import path from 'path';
 import readline from 'readline';
 import P from 'pino';
+import NodeCache from 'node-cache';
+import { startWatcher } from './watcher.ts';
+import { startJoinApproval } from './join-approval.ts';
+import { useMongoAuthState } from './auth-state.ts';
 
 const INVITE_LINK_RE = /chat\.whatsapp\.com\/[A-Za-z0-9]+/;
 
-const AUTH_DIR = path.join(process.cwd(), 'auth_info');
 const logger = P({ level: 'silent' });
+
+const groupCache = new NodeCache({stdTTL: 600})
 
 let sock: WASocket | null = null;
 let isConnected = false;
+
+type ConnectedServiceStarter = (sock: WASocket) => void;
 
 function prompt(question: string): Promise<string> {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   return new Promise(resolve => rl.question(question, answer => { rl.close(); resolve(answer); }));
 }
 
+export function createConnectedServicesStarter(
+  socket: WASocket,
+  starters: ConnectedServiceStarter[] = [startWatcher, startJoinApproval],
+): () => void {
+  let started = false;
+
+  return () => {
+    if (started) return;
+    started = true;
+
+    for (const starter of starters) {
+      starter(socket);
+    }
+  };
+}
+
 export async function connectToWhatsApp(): Promise<void> {
-  const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
+  const { state, saveCreds } = await useMongoAuthState();
   const { version } = await fetchLatestBaileysVersion();
 
   sock = makeWASocket({
@@ -36,8 +57,10 @@ export async function connectToWhatsApp(): Promise<void> {
       keys: makeCacheableSignalKeyStore(state.keys, logger),
     },
     logger,
+    cachedGroupMetadata: async (jid) => groupCache.get(jid),
     printQRInTerminal: false,
-    browser: Browsers.windows('chrome'),
+    browser: Browsers.macOS("Safari"),
+    markOnlineOnConnect: false,
   });
 
   // Request pairing code if not registered
@@ -47,6 +70,8 @@ export async function connectToWhatsApp(): Promise<void> {
     const code = await sock.requestPairingCode(sanitized);
     console.log(`\nPairing code: ${code}\nEnter this code in WhatsApp > Linked Devices > Link a Device > Link with phone number\n`);
   }
+
+  const startConnectedServices = createConnectedServicesStarter(sock);
 
   sock.ev.on('creds.update', saveCreds);
   sock.ev.on('messages.upsert', ({ messages, type }) => {
@@ -69,10 +94,11 @@ export async function connectToWhatsApp(): Promise<void> {
       if (shouldReconnect) {
         setTimeout(() => connectToWhatsApp(), 3000);
       } else {
-        console.log('Logged out. Delete auth_info folder and restart to re-authenticate.');
+        console.log('Logged out. Clear baileys_auth records in MongoDB and restart to re-authenticate.');
       }
     } else if (connection === 'open') {
       isConnected = true;
+      startConnectedServices();
       console.log('WhatsApp connected successfully.');
     }
   });

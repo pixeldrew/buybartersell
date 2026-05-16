@@ -2,3 +2,8 @@ auth_info
 node_modules
 dist
 *.iml
+export_test
+media
+.env
+client/admin/public/favicon.ico
+client/join/public/favicon.ico

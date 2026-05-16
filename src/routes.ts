@@ -1,39 +1,42 @@
+import path from 'path';
 import { Router, type Request, type Response } from 'express';
-import { sendGroupMessage, listGroups, getConnectionStatus } from './whatsapp';
+import expressStaticGzip from 'express-static-gzip';
+import apiRouter from './api-routes.ts';
+import { createRequireAdminPage, getConfiguredAdminEmails } from './auth.ts';
 
 const router = Router();
+const ADMIN_DIST_DIR = path.resolve(process.cwd(), 'client/admin/dist');
+const ADMIN_INDEX = path.join(ADMIN_DIST_DIR, 'index.html');
+const JOIN_DIST_DIR = path.resolve(process.cwd(), 'client/join/dist');
+const JOIN_INDEX = path.join(JOIN_DIST_DIR, 'index.html');
 
-// GET /status - WhatsApp connection status
-router.get('/status', (_req: Request, res: Response) => {
-  res.json({ connected: getConnectionStatus() });
+router.use('/api', apiRouter);
+
+router.use('/admin', createRequireAdminPage(getConfiguredAdminEmails()));
+router.use(
+  '/admin/dashboard',
+  expressStaticGzip(ADMIN_DIST_DIR, {
+    enableBrotli: true,
+    index: false,
+    orderPreference: ['br'],
+    serveStatic: { index: false },
+  }),
+);
+router.get('/admin/dashboard', (_req: Request, res: Response) => {
+  res.sendFile(ADMIN_INDEX);
 });
 
-// GET /groups - List all groups the account is in
-router.get('/groups', async (_req: Request, res: Response) => {
-  try {
-    const groups = await listGroups();
-    res.json({ groups });
-  } catch (err) {
-    res.status(503).json({ error: (err as Error).message });
-  }
-});
-
-// POST /send - Send a message to a group
-// Body: { groupId: string, message: string }
-router.post('/send', async (req: Request, res: Response) => {
-  const { groupId, message } = req.body as { groupId?: string; message?: string };
-
-  if (!groupId || !message) {
-    res.status(400).json({ error: 'groupId and message are required' });
-    return;
-  }
-
-  try {
-    await sendGroupMessage(groupId, message);
-    res.json({ success: true, groupId, message });
-  } catch (err) {
-    res.status(503).json({ error: (err as Error).message });
-  }
+router.use(
+  '/join',
+  expressStaticGzip(JOIN_DIST_DIR, {
+    enableBrotli: true,
+    index: false,
+    orderPreference: ['br'],
+    serveStatic: { index: false },
+  }),
+);
+router.get('/join/:token', (_req: Request, res: Response) => {
+  res.sendFile(JOIN_INDEX);
 });
 
 export default router;
