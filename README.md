@@ -26,9 +26,27 @@ To re-authenticate, clear the `baileys_auth` collection and restart.
 ```bash
 npm run dev   # run via ts-node, no build step needed
 npm run dev:admin   # run the Vite admin app with API proxying to PORT/3000
+npm run dev:join   # run the Vite join app with API proxying to PORT/3000
 ```
 
-`npm run build` compiles the backend and builds the React admin app served at `/admin/dashboard`.
+`npm run build` compiles the backend and builds the React admin app served at `/admin/dashboard` plus the public join app served at `/join/:token`.
+
+## Admin Authentication
+
+Admin routes under `/admin/*` and JSON routes under `/api/admin/*` require Google OIDC login and an email listed in `ADMIN_EMAILS`.
+
+Configure these environment variables:
+
+| Variable | Purpose |
+|---|---|
+| `OIDC_ISSUER_BASE_URL` | OIDC issuer URL, e.g. `https://accounts.google.com` |
+| `OIDC_BASE_URL` | Public app origin registered with Google |
+| `OIDC_CLIENT_ID` | Google OAuth client ID |
+| `OIDC_CLIENT_SECRET` | Google OAuth client secret |
+| `OIDC_SECRET` | Session cookie secret, at least 8 characters |
+| `ADMIN_EMAILS` | Comma-separated allowlist of Google account emails |
+
+Configure the Google OAuth redirect URI as `${OIDC_BASE_URL}/callback`.
 
 ## API
 

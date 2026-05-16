@@ -3,15 +3,19 @@
   "version": "1.0.0",
   "description": "WhatsApp group messaging bot with REST API and invite-link moderation",
   "workspaces": [
-    "client/admin"
+    "client/admin",
+    "client/join",
+    "client/ui"
   ],
   "scripts": {
-    "build": "npm run build:server && npm run build:admin",
+    "build": "npm run build:server && npm run build:admin && npm run build:join",
     "build:server": "tsc",
     "build:admin": "npm --workspace whatsapp-spam-admin run build",
+    "build:join": "npm --workspace whatsapp-spam-join run build",
     "start": "node dist/index.js",
     "dev": "ts-node --project tsconfig.json src/index.ts",
     "dev:admin": "npm --workspace whatsapp-spam-admin run dev",
+    "dev:join": "npm --workspace whatsapp-spam-join run dev",
     "prepare": "husky"
   },
   "module": "dist/index.js",
@@ -26,6 +30,7 @@
     "@whiskeysockets/baileys": "^7.0.0-rc.9",
     "dotenv-flow": "^4.1.0",
     "express": "^5.2.1",
+    "express-openid-connect": "^2.20.2",
     "mongoose": "^9.4.1",
     "node-cache": "^5.1.2",
     "uuid": "^13.0.0"

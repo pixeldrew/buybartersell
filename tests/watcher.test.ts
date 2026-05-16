@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { proto } from '@whiskeysockets/baileys';
-import { createPhoneBook, resolveSenderPhoneNumber } from '../src/watcher';
-import { collateMessagesForSave, mediaPathForStorage } from '../src/watcher';
+import { createPhoneBook, resolveSenderPhoneNumber } from '../src/watcher.ts';
+import { collateMessagesForSave, mediaPathForStorage } from '../src/watcher.ts';
 
 test('resolves phone numbers from PN-style sender JIDs without metadata', () => {
   const phoneBook = createPhoneBook();

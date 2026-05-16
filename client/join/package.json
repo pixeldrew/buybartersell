@@ -1,5 +1,5 @@
 {
-  "name": "whatsapp-spam-admin",
+  "name": "whatsapp-spam-join",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -11,8 +11,7 @@
     "@whatsapp-spam/ui": "1.0.0",
     "lucide-react": "^1.14.0",
     "react": "^19.2.6",
-    "react-dom": "^19.2.6",
-    "recharts": "^3.8.1"
+    "react-dom": "^19.2.6"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.0",
