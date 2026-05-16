@@ -1,15 +1,13 @@
 import { randomBytes } from 'crypto';
 import { type WASocket } from '@whiskeysockets/baileys';
 import { getAppUrl, getTermsGateEnabled } from './admin-settings.ts';
+import {
+  createJoinRequest,
+  markJoinRequestUsed,
+  resolveJoinRequestToken,
+  type JoinRequestRecord,
+} from './join-request-store.ts';
 
-interface PendingRequest {
-  userJid:   string;
-  groupJid:  string;
-  expiresAt: Date;
-  used:      boolean;
-}
-
-const pendingRequests = new Map<string, PendingRequest>();
 let _sock: WASocket | null = null;
 
 type JoinRequestHandler = (userJid: string, groupJid: string) => Promise<void>;
@@ -25,31 +23,18 @@ function getSock(): WASocket {
   return _sock;
 }
 
-export function resolveToken(token: string): PendingRequest {
-  const entry = pendingRequests.get(token);
-  if (!entry) throw Object.assign(new Error('Token not found'), { code: 'NOT_FOUND' });
-  if (entry.used) throw Object.assign(new Error('Token already used'), { code: 'USED' });
-  if (entry.expiresAt < new Date()) {
-    pendingRequests.delete(token);
-    throw Object.assign(new Error('Token expired'), { code: 'EXPIRED' });
-  }
-  return entry;
-}
-
-function consumeToken(token: string): PendingRequest {
-  const entry = resolveToken(token);
-  entry.used = true;
-  return entry;
+export async function resolveToken(token: string): Promise<JoinRequestRecord> {
+  return resolveJoinRequestToken(token);
 }
 
 export async function approveRequest(token: string): Promise<void> {
-  const { userJid, groupJid } = consumeToken(token);
+  const { userJid, groupJid } = await markJoinRequestUsed(token);
   await getSock().groupRequestParticipantsUpdate(groupJid, [userJid], 'approve');
   console.log(`[join-approval] Approved ${userJid} into ${groupJid}`);
 }
 
 export async function rejectRequest(token: string): Promise<void> {
-  const { userJid, groupJid } = consumeToken(token);
+  const { userJid, groupJid } = await markJoinRequestUsed(token);
   await getSock().groupRequestParticipantsUpdate(groupJid, [userJid], 'reject');
   console.log(`[join-approval] Rejected ${userJid} from ${groupJid}`);
 }
@@ -63,11 +48,11 @@ export function createJoinRequestHandler(deps: JoinRequestHandlerDeps): JoinRequ
     }
 
     const token = randomBytes(32).toString('hex');
-    pendingRequests.set(token, {
+    await createJoinRequest({
       userJid,
       groupJid,
       expiresAt: new Date(Date.now() + 86_400_000),
-      used: false,
+      token,
     });
 
     const appUrl = await (deps.getAppUrl ?? getAppUrl)();
