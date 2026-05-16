@@ -1,1 +1,4 @@
+@import "tailwindcss";
+@source ".";
+@source "../../ui/src";
 @import "@whatsapp-spam/ui/index.css";
