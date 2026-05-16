@@ -11,10 +11,10 @@
     "prefix": ""
   },
   "aliases": {
-    "components": "@whatsapp-spam/ui/components",
-    "utils": "@whatsapp-spam/ui/lib/utils",
-    "ui": "@whatsapp-spam/ui/components/ui",
-    "lib": "@whatsapp-spam/ui/lib",
+    "components": "@buybartersell/ui/components",
+    "utils": "@buybartersell/ui/lib/utils",
+    "ui": "@buybartersell/ui/components/ui",
+    "lib": "@buybartersell/ui/lib",
     "hooks": "@/hooks"
   },
   "iconLibrary": "lucide"

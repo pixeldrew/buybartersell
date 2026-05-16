@@ -1,4 +1,4 @@
-# whatsapp-spam
+# buybartersell
 
 A TypeScript/Express WhatsApp group moderation and stats service. It connects to
 WhatsApp through Baileys, stores watched-group messages in MongoDB, analyzes gear

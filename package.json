@@ -1,5 +1,5 @@
 {
-  "name": "whatsapp-spam",
+  "name": "buybartersell",
   "version": "1.0.0",
   "description": "WhatsApp group messaging bot with REST API and invite-link moderation",
   "workspaces": [
@@ -10,12 +10,12 @@
   "scripts": {
     "build": "npm run build:server && npm run build:admin && npm run build:join",
     "build:server": "tsc",
-    "build:admin": "npm --workspace whatsapp-spam-admin run build",
-    "build:join": "npm --workspace whatsapp-spam-join run build",
+    "build:admin": "npm --workspace buybartersell-admin run build",
+    "build:join": "npm --workspace buybartersell-join run build",
     "start": "node dist/index.js",
     "dev": "ts-node --project tsconfig.json src/index.ts",
-    "dev:admin": "npm --workspace whatsapp-spam-admin run dev",
-    "dev:join": "npm --workspace whatsapp-spam-join run dev",
+    "dev:admin": "npm --workspace buybartersell-admin run dev",
+    "dev:join": "npm --workspace buybartersell-join run dev",
     "prepare": "husky"
   },
   "module": "dist/index.js",

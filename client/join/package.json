@@ -1,5 +1,5 @@
 {
-  "name": "whatsapp-spam-join",
+  "name": "buybartersell-join",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -8,7 +8,7 @@
     "dev": "vite"
   },
   "dependencies": {
-    "@whatsapp-spam/ui": "1.0.0",
+    "@buybartersell/ui": "1.0.0",
     "lucide-react": "^1.14.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
