@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { analyzeMessage } from '../src/analyzer';
+import { analyzeMessage } from '../src/analyzer.ts';
 
 const originalFetch = global.fetch;
 

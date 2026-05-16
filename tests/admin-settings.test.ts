@@ -4,7 +4,7 @@ import {
   parseAppUrlBody,
   parseTermsGateEnabledBody,
   resolveAppUrl,
-} from '../src/admin-settings';
+} from '../src/admin-settings.ts';
 
 test('parses valid terms gate setting bodies', () => {
   assert.equal(parseTermsGateEnabledBody({ enabled: true }), true);

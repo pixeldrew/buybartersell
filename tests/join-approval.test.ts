@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import test from 'node:test';
 import { type WASocket } from '@whiskeysockets/baileys';
-import { createJoinRequestHandler, startJoinApproval } from '../src/join-approval';
+import { createJoinRequestHandler, startJoinApproval } from '../src/join-approval.ts';
 
 test('join request handler ignores requests when terms gate is disabled', async () => {
   const sent: Array<{ jid: string; message: { text?: string } }> = [];
@@ -32,7 +32,7 @@ test('join request handler sends terms link when terms gate is enabled', async (
 
   assert.equal(sent.length, 1);
   assert.equal(sent[0]?.jid, '15551234567@s.whatsapp.net');
-  assert.match(sent[0]?.message.text ?? '', /https:\/\/example\.test\/api\/join\/[a-f0-9]{64}/);
+  assert.match(sent[0]?.message.text ?? '', /https:\/\/example\.test\/join\/[a-f0-9]{64}/);
 });
 
 test('startJoinApproval ignores non-created events and other groups', () => {

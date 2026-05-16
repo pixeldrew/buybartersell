@@ -71,7 +71,7 @@ export function createJoinRequestHandler(deps: JoinRequestHandlerDeps): JoinRequ
     });
 
     const appUrl = await (deps.getAppUrl ?? getAppUrl)();
-    const joinUrl = `${appUrl}/api/join/${token}`;
+    const joinUrl = `${appUrl}/join/${token}`;
 
     console.log(`[join-approval] Join request from ${userJid} — sending T&C link`);
 

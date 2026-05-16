@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { type WASocket } from '@whiskeysockets/baileys';
-import { createConnectedServicesStarter } from '../src/whatsapp';
+import { createConnectedServicesStarter } from '../src/whatsapp.ts';
 
 test('connected services start only once after connection opens', () => {
   const socket = {} as WASocket;

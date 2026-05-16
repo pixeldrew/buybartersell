@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircleIcon, RefreshCwIcon, SaveIcon } from 'lucide-react';
+import { AlertCircleIcon, LogInIcon, RefreshCwIcon, SaveIcon } from 'lucide-react';
 import {
   Bar,
   BarChart,
@@ -11,28 +11,28 @@ import {
   YAxis,
 } from 'recharts';
 import type { PieLabelRenderProps } from 'recharts';
-import { getSettings, getStats, setAppUrl, setTermsGate } from './api';
+import { getSettings, getStats, isAuthenticationRequiredError, setAppUrl, setTermsGate } from './api';
 import type { AdminSettings, AdminStats } from './types';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@whatsapp-spam/ui/components/ui/alert';
+import { Badge } from '@whatsapp-spam/ui/components/ui/badge';
+import { Button } from '@whatsapp-spam/ui/components/ui/button';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
+} from '@whatsapp-spam/ui/components/ui/card';
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
-} from '@/components/ui/chart';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Switch } from '@/components/ui/switch';
+} from '@whatsapp-spam/ui/components/ui/chart';
+import { Input } from '@whatsapp-spam/ui/components/ui/input';
+import { Label } from '@whatsapp-spam/ui/components/ui/label';
+import { Skeleton } from '@whatsapp-spam/ui/components/ui/skeleton';
+import { Switch } from '@whatsapp-spam/ui/components/ui/switch';
 
 const postsConfig = {
   count: {
@@ -90,9 +90,11 @@ export function App() {
   const [appUrlPending, setAppUrlPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [authenticationRequired, setAuthenticationRequired] = useState(false);
 
   async function loadDashboard() {
     setError(null);
+    setAuthenticationRequired(false);
     setRefreshing(true);
     try {
       const [nextStats, nextSettings] = await Promise.all([getStats(), getSettings()]);
@@ -100,7 +102,11 @@ export function App() {
       setSettings(nextSettings);
       setAppUrlInput(nextSettings.appUrl);
     } catch (err) {
-      setError((err as Error).message);
+      if (isAuthenticationRequiredError(err)) {
+        setAuthenticationRequired(true);
+      } else {
+        setError((err as Error).message);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -149,6 +155,7 @@ export function App() {
   }
 
   if (loading) return <DashboardSkeleton />;
+  if (authenticationRequired) return <AuthenticationRequired />;
 
   return (
     <main className="min-h-screen bg-background px-6 py-6 text-foreground md:px-10">
@@ -286,6 +293,27 @@ export function App() {
           </section>
         ) : null}
       </div>
+    </main>
+  );
+}
+
+function AuthenticationRequired() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-background px-6 py-6 text-foreground">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle>Sign in required</CardTitle>
+          <CardDescription>Use your authorized Google account to access the admin dashboard.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild className="w-full">
+            <a href={`/login?returnTo=${encodeURIComponent('/admin/dashboard')}`}>
+              <LogInIcon data-icon="inline-start" />
+              Sign in with Google
+            </a>
+          </Button>
+        </CardContent>
+      </Card>
     </main>
   );
 }
