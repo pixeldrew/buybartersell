@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { type WASocket } from '@whiskeysockets/baileys';
 import { createJoinRequestHandler, startJoinApproval } from '../src/join-approval.ts';
-import { acceptJoinToken, getJoinTokenStatus, rejectJoinToken } from '../src/api-routes.ts';
+import { acceptJoinToken, getJoinTokenStatus, rejectJoinToken } from '../src/join-routes.ts';
 
 async function createToken(): Promise<string> {
   const sent: Array<{ message: { text?: string } }> = [];
@@ -23,11 +23,11 @@ async function createToken(): Promise<string> {
 test('join status returns ok for a valid token', async () => {
   const token = await createToken();
 
-  assert.deepEqual(getJoinTokenStatus(token), { status: 200, body: { ok: true } });
+  assert.deepEqual(await getJoinTokenStatus(token), { status: 200, body: { ok: true } });
 });
 
-test('join status returns json errors for unavailable tokens', () => {
-  assert.deepEqual(getJoinTokenStatus('not-a-token'), {
+test('join status returns json errors for unavailable tokens', async () => {
+  assert.deepEqual(await getJoinTokenStatus('not-a-token'), {
     status: 404,
     body: {
       ok: false,
