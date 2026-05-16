@@ -3,6 +3,7 @@ import { EventEmitter } from 'node:events';
 import test from 'node:test';
 import { type WASocket } from '@whiskeysockets/baileys';
 import { createJoinRequestHandler, startJoinApproval } from '../src/join-approval.ts';
+import { stubJoinRequestStore } from './join-request-store-stub.ts';
 
 test('join request handler ignores requests when terms gate is disabled', async () => {
   const sent: Array<{ jid: string; message: { text?: string } }> = [];
@@ -20,6 +21,7 @@ test('join request handler ignores requests when terms gate is disabled', async 
 
 test('join request handler sends terms link when terms gate is enabled', async () => {
   const sent: Array<{ jid: string; message: { text?: string } }> = [];
+  const { restore } = stubJoinRequestStore();
   const handler = createJoinRequestHandler({
     getTermsGateEnabled: async () => true,
     getAppUrl: async () => 'https://example.test',
@@ -28,7 +30,11 @@ test('join request handler sends terms link when terms gate is enabled', async (
     },
   });
 
-  await handler('15551234567@s.whatsapp.net', '123@g.us');
+  try {
+    await handler('15551234567@s.whatsapp.net', '123@g.us');
+  } finally {
+    restore();
+  }
 
   assert.equal(sent.length, 1);
   assert.equal(sent[0]?.jid, '15551234567@s.whatsapp.net');

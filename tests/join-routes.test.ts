@@ -3,6 +3,7 @@ import test from 'node:test';
 import { type WASocket } from '@whiskeysockets/baileys';
 import { createJoinRequestHandler, startJoinApproval } from '../src/join-approval.ts';
 import { acceptJoinToken, getJoinTokenStatus, rejectJoinToken } from '../src/join-routes.ts';
+import { stubJoinRequestStore } from './join-request-store-stub.ts';
 
 async function createToken(): Promise<string> {
   const sent: Array<{ message: { text?: string } }> = [];
@@ -21,19 +22,29 @@ async function createToken(): Promise<string> {
 }
 
 test('join status returns ok for a valid token', async () => {
-  const token = await createToken();
+  const { restore } = stubJoinRequestStore();
+  try {
+    const token = await createToken();
 
-  assert.deepEqual(await getJoinTokenStatus(token), { status: 200, body: { ok: true } });
+    assert.deepEqual(await getJoinTokenStatus(token), { status: 200, body: { ok: true } });
+  } finally {
+    restore();
+  }
 });
 
 test('join status returns json errors for unavailable tokens', async () => {
-  assert.deepEqual(await getJoinTokenStatus('not-a-token'), {
-    status: 404,
-    body: {
-      ok: false,
-      error: 'This invitation link is invalid.',
-    },
-  });
+  const { restore } = stubJoinRequestStore();
+  try {
+    assert.deepEqual(await getJoinTokenStatus('not-a-token'), {
+      status: 404,
+      body: {
+        ok: false,
+        error: 'This invitation link is invalid.',
+      },
+    });
+  } finally {
+    restore();
+  }
 });
 
 test('join accept and reject endpoints return json outcomes', async () => {
@@ -47,6 +58,7 @@ test('join accept and reject endpoints return json outcomes', async () => {
     },
   } as unknown as WASocket;
   startJoinApproval(sock, async () => undefined);
+  const { restore } = stubJoinRequestStore();
 
   try {
     const acceptToken = await createToken();
@@ -61,6 +73,7 @@ test('join accept and reject endpoints return json outcomes', async () => {
       body: { ok: true, outcome: 'declined' },
     });
   } finally {
+    restore();
     if (previousWatchGroupId === undefined) {
       delete process.env.WATCH_GROUP_ID;
     } else {
