@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AlertCircleIcon, CheckCircle2Icon, Loader2Icon, XCircleIcon } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@whatsapp-spam/ui/components/ui/alert';
-import { Button } from '@whatsapp-spam/ui/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@buybartersell/ui/components/ui/alert';
+import { Button } from '@buybartersell/ui/components/ui/button';
 import {
   Card,
   CardContent,
@@ -9,8 +9,8 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@whatsapp-spam/ui/components/ui/card';
-import { Skeleton } from '@whatsapp-spam/ui/components/ui/skeleton';
+} from '@buybartersell/ui/components/ui/card';
+import { Skeleton } from '@buybartersell/ui/components/ui/skeleton';
 
 type JoinState =
   | { status: 'loading' }

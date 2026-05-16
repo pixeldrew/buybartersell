@@ -13,26 +13,26 @@ import {
 import type { PieLabelRenderProps } from 'recharts';
 import { getSettings, getStats, isAuthenticationRequiredError, setAppUrl, setTermsGate } from './api';
 import type { AdminSettings, AdminStats } from './types';
-import { Alert, AlertDescription, AlertTitle } from '@whatsapp-spam/ui/components/ui/alert';
-import { Badge } from '@whatsapp-spam/ui/components/ui/badge';
-import { Button } from '@whatsapp-spam/ui/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@buybartersell/ui/components/ui/alert';
+import { Badge } from '@buybartersell/ui/components/ui/badge';
+import { Button } from '@buybartersell/ui/components/ui/button';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@whatsapp-spam/ui/components/ui/card';
+} from '@buybartersell/ui/components/ui/card';
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
-} from '@whatsapp-spam/ui/components/ui/chart';
-import { Input } from '@whatsapp-spam/ui/components/ui/input';
-import { Label } from '@whatsapp-spam/ui/components/ui/label';
-import { Skeleton } from '@whatsapp-spam/ui/components/ui/skeleton';
-import { Switch } from '@whatsapp-spam/ui/components/ui/switch';
+} from '@buybartersell/ui/components/ui/chart';
+import { Input } from '@buybartersell/ui/components/ui/input';
+import { Label } from '@buybartersell/ui/components/ui/label';
+import { Skeleton } from '@buybartersell/ui/components/ui/skeleton';
+import { Switch } from '@buybartersell/ui/components/ui/switch';
 
 const postsConfig = {
   count: {
