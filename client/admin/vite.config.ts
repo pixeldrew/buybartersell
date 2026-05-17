@@ -13,6 +13,7 @@ export default defineConfig({
       //'/admin': process.env.BACKEND_URL ?? `http://localhost:${process.env.PORT ?? 3000}`,
       '/api/admin/stats': process.env.BACKEND_URL ?? `http://localhost:${process.env.PORT ?? 3000}`,
       '/api/admin/settings': process.env.BACKEND_URL ?? `http://localhost:${process.env.PORT ?? 3000}`,
+      '/api/admin/tracked-group': process.env.BACKEND_URL ?? `http://localhost:${process.env.PORT ?? 3000}`,
       '/login': {
         target: process.env.BACKEND_URL ?? `http://localhost:${process.env.PORT ?? 3000}`,
         changeOrigin: true,

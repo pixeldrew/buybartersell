@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { getMarketCounts, getSentimentCounts, getWeeklyPostCounts } from './db.ts';
-import { listGroups } from './whatsapp.ts';
+import { listGroups, listTrackedGroupUsers } from './whatsapp.ts';
 import {
   getAppUrl,
   getTermsGateEnabled,
@@ -19,6 +19,15 @@ adminRouter.get('/groups', async (_req: Request, res: Response) => {
   try {
     const groups = await listGroups();
     res.json({ groups });
+  } catch (err) {
+    res.status(503).json({ error: (err as Error).message });
+  }
+});
+
+adminRouter.get('/tracked-group/users', async (_req: Request, res: Response) => {
+  try {
+    const trackedGroup = await listTrackedGroupUsers();
+    res.json({ trackedGroup });
   } catch (err) {
     res.status(503).json({ error: (err as Error).message });
   }

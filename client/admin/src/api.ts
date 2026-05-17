@@ -1,4 +1,4 @@
-import type { AdminSettings, AdminStats } from './types';
+import type { AdminSettings, AdminStats, TrackedGroupUsers } from './types';
 
 export class ApiError extends Error {
   constructor(
@@ -34,6 +34,10 @@ export function getStats(): Promise<AdminStats> {
 
 export function getSettings(): Promise<AdminSettings> {
   return requestJson<AdminSettings>('/api/admin/settings');
+}
+
+export function getTrackedGroupUsers(): Promise<{ trackedGroup: TrackedGroupUsers }> {
+  return requestJson<{ trackedGroup: TrackedGroupUsers }>('/api/admin/tracked-group/users');
 }
 
 export function setTermsGate(enabled: boolean): Promise<Pick<AdminSettings, 'termsGateEnabled'>> {

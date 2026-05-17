@@ -24,6 +24,38 @@ let sock: WASocket | null = null;
 let isConnected = false;
 
 type ConnectedServiceStarter = (sock: WASocket) => void;
+export type TrackedGroupUserRole = 'member' | 'admin' | 'superadmin';
+
+export interface TrackedGroupUser {
+  id: string;
+  phoneNumber: string | null;
+  role: TrackedGroupUserRole;
+}
+
+export interface TrackedGroupUsers {
+  groupId: string;
+  subject: string;
+  participants: TrackedGroupUser[];
+}
+
+type GroupParticipantLike = {
+  id: string;
+  admin?: 'admin' | 'superadmin' | null;
+};
+
+type GroupMetadataLike = {
+  id: string;
+  subject: string;
+  participants: GroupParticipantLike[];
+};
+
+type GroupMetadataSocket = Pick<WASocket, 'groupMetadata'>;
+
+const roleSortOrder: Record<TrackedGroupUserRole, number> = {
+  superadmin: 0,
+  admin: 1,
+  member: 2,
+};
 
 function prompt(question: string): Promise<string> {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -133,6 +165,57 @@ export async function listGroups(): Promise<Array<{ id: string; subject: string;
     subject: g.subject,
     participants: g.participants.length,
   }));
+}
+
+function phoneNumberFromJid(jid: string): string | null {
+  const user = jid.split('@')[0];
+  return /^\d+$/.test(user) ? user : null;
+}
+
+function trackedGroupUserRole(admin: GroupParticipantLike['admin']): TrackedGroupUserRole {
+  return admin === 'admin' || admin === 'superadmin' ? admin : 'member';
+}
+
+export function trackedGroupUsersFromMetadata(metadata: GroupMetadataLike): TrackedGroupUsers {
+  const participants = metadata.participants
+    .map((participant) => {
+      return {
+        id: participant.id,
+        phoneNumber: phoneNumberFromJid(participant.id),
+        role: trackedGroupUserRole(participant.admin),
+      };
+    })
+    .sort((a, b) => {
+      const roleComparison = roleSortOrder[a.role] - roleSortOrder[b.role];
+      if (roleComparison !== 0) return roleComparison;
+      return (a.phoneNumber ?? a.id).localeCompare(b.phoneNumber ?? b.id);
+    });
+
+  return {
+    groupId: metadata.id,
+    subject: metadata.subject,
+    participants,
+  };
+}
+
+export async function listTrackedGroupUsers(options: {
+  socket?: GroupMetadataSocket;
+  isConnected?: boolean;
+  watchGroupId?: string;
+} = {}): Promise<TrackedGroupUsers> {
+  const watchGroupId = options.watchGroupId ?? process.env.WATCH_GROUP_ID;
+  if (!watchGroupId) {
+    throw new Error('WATCH_GROUP_ID is not configured');
+  }
+
+  const activeSocket = options.socket ?? sock;
+  const connected = options.isConnected ?? isConnected;
+  if (!connected || !activeSocket) {
+    throw new Error('WhatsApp is not connected');
+  }
+
+  const metadata = await activeSocket.groupMetadata(watchGroupId);
+  return trackedGroupUsersFromMetadata(metadata);
 }
 
 function extractMessageText(msg: proto.IWebMessageInfo): string {
