@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircleIcon, LogInIcon, RefreshCwIcon, SaveIcon, UsersIcon } from 'lucide-react';
+import { AlertCircleIcon, CheckIcon, LogInIcon, RefreshCwIcon, SaveIcon, SendIcon, UsersIcon } from 'lucide-react';
 import {
   Bar,
   BarChart,
@@ -11,8 +11,18 @@ import {
   YAxis,
 } from 'recharts';
 import type { PieLabelRenderProps } from 'recharts';
-import { getSettings, getStats, getTrackedGroupUsers, isAuthenticationRequiredError, setAppUrl, setTermsGate } from './api';
-import type { AdminSettings, AdminStats, TrackedGroupUserRole, TrackedGroupUsers } from './types';
+import {
+  closeActivityPoll,
+  createActivityPoll,
+  getLatestActivityPoll,
+  getSettings,
+  getStats,
+  getTrackedGroupUsers,
+  isAuthenticationRequiredError,
+  setAppUrl,
+  setTermsGate,
+} from './api';
+import type { ActivityPoll, AdminSettings, AdminStats, TrackedGroupUserRole, TrackedGroupUsers } from './types';
 import { Alert, AlertDescription, AlertTitle } from '@buybartersell/ui/components/ui/alert';
 import { Badge } from '@buybartersell/ui/components/ui/badge';
 import { Button } from '@buybartersell/ui/components/ui/button';
@@ -49,6 +59,7 @@ const sentimentColors: Record<string, string> = {
 };
 
 const RADIAN = Math.PI / 180;
+const DEFAULT_ACTIVITY_POLL_QUESTION = 'Are you still active in this group?';
 
 function renderSentimentLabel({
   cx,
@@ -84,29 +95,39 @@ export function App() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [settings, setSettings] = useState<AdminSettings | null>(null);
   const [trackedGroupUsers, setTrackedGroupUsers] = useState<TrackedGroupUsers | null>(null);
+  const [activityPoll, setActivityPoll] = useState<ActivityPoll | null>(null);
+  const [activityPollQuestion, setActivityPollQuestion] = useState(DEFAULT_ACTIVITY_POLL_QUESTION);
   const [appUrlInput, setAppUrlInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [termsPending, setTermsPending] = useState(false);
   const [appUrlPending, setAppUrlPending] = useState(false);
+  const [activityPollPending, setActivityPollPending] = useState(false);
+  const [activityPollClosePending, setActivityPollClosePending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [trackedGroupUsersError, setTrackedGroupUsersError] = useState<string | null>(null);
+  const [activityPollError, setActivityPollError] = useState<string | null>(null);
   const [authenticationRequired, setAuthenticationRequired] = useState(false);
 
   async function loadDashboard() {
     setError(null);
     setTrackedGroupUsersError(null);
+    setActivityPollError(null);
     setAuthenticationRequired(false);
     setRefreshing(true);
     try {
       const trackedGroupUsersRequest = getTrackedGroupUsers()
         .then((response) => ({ status: 'fulfilled' as const, value: response.trackedGroup }))
         .catch((err) => ({ status: 'rejected' as const, reason: err }));
-      const [nextStats, nextSettings, nextTrackedGroupUsers] = await Promise.all([
+      const activityPollRequest = getLatestActivityPoll()
+        .then((response) => ({ status: 'fulfilled' as const, value: response.activityPoll }))
+        .catch((err) => ({ status: 'rejected' as const, reason: err }));
+      const [nextStats, nextSettings, nextTrackedGroupUsers, nextActivityPoll] = await Promise.all([
         getStats(),
         getSettings(),
         trackedGroupUsersRequest,
+        activityPollRequest,
       ]);
       setStats(nextStats);
       setSettings(nextSettings);
@@ -118,6 +139,14 @@ export function App() {
       } else {
         setTrackedGroupUsers(null);
         setTrackedGroupUsersError((nextTrackedGroupUsers.reason as Error).message);
+      }
+      if (nextActivityPoll.status === 'fulfilled') {
+        setActivityPoll(nextActivityPoll.value);
+      } else if (isAuthenticationRequiredError(nextActivityPoll.reason)) {
+        setAuthenticationRequired(true);
+      } else {
+        setActivityPoll(null);
+        setActivityPollError((nextActivityPoll.reason as Error).message);
       }
     } catch (err) {
       if (isAuthenticationRequiredError(err)) {
@@ -169,6 +198,41 @@ export function App() {
       setSettingsError((err as Error).message);
     } finally {
       setAppUrlPending(false);
+    }
+  }
+
+  async function sendActivityPoll() {
+    setActivityPollError(null);
+    setActivityPollPending(true);
+    try {
+      const response = await createActivityPoll(activityPollQuestion);
+      setActivityPoll(response.activityPoll);
+    } catch (err) {
+      if (isAuthenticationRequiredError(err)) {
+        setAuthenticationRequired(true);
+      } else {
+        setActivityPollError((err as Error).message);
+      }
+    } finally {
+      setActivityPollPending(false);
+    }
+  }
+
+  async function closeOpenActivityPoll() {
+    if (!activityPoll) return;
+    setActivityPollError(null);
+    setActivityPollClosePending(true);
+    try {
+      const response = await closeActivityPoll(activityPoll.id);
+      setActivityPoll(response.activityPoll);
+    } catch (err) {
+      if (isAuthenticationRequiredError(err)) {
+        setAuthenticationRequired(true);
+      } else {
+        setActivityPollError((err as Error).message);
+      }
+    } finally {
+      setActivityPollClosePending(false);
     }
   }
 
@@ -251,6 +315,17 @@ export function App() {
         ) : null}
 
         <TrackedGroupUsersCard trackedGroupUsers={trackedGroupUsers} error={trackedGroupUsersError} />
+
+        <ActivityPollCard
+          activityPoll={activityPoll}
+          question={activityPollQuestion}
+          error={activityPollError}
+          pending={activityPollPending}
+          closePending={activityPollClosePending}
+          onQuestionChange={setActivityPollQuestion}
+          onSend={() => void sendActivityPoll()}
+          onClose={() => void closeOpenActivityPoll()}
+        />
 
         {stats ? (
           <section className="grid gap-6 lg:grid-cols-3">
@@ -385,6 +460,108 @@ function TrackedGroupUsersCard({
           ) : (
             <p className="text-sm text-muted-foreground">No users found for this group.</p>
           )
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ActivityPollCard({
+  activityPoll,
+  question,
+  error,
+  pending,
+  closePending,
+  onQuestionChange,
+  onSend,
+  onClose,
+}: {
+  activityPoll: ActivityPoll | null;
+  question: string;
+  error: string | null;
+  pending: boolean;
+  closePending: boolean;
+  onQuestionChange: (question: string) => void;
+  onSend: () => void;
+  onClose: () => void;
+}) {
+  const hasOpenPoll = activityPoll?.status === 'open';
+  const inactiveParticipants = activityPoll?.inactiveParticipants ?? [];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Activity Poll</CardTitle>
+        <CardDescription>
+          {activityPoll
+            ? `${activityPoll.respondedCount} of ${activityPoll.expectedCount} members responded`
+            : 'No activity poll has been sent yet.'}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="activity-poll-question">Question</Label>
+          <div className="flex flex-col gap-2 md:flex-row">
+            <Input
+              id="activity-poll-question"
+              value={question}
+              onChange={(event) => onQuestionChange(event.target.value)}
+              disabled={hasOpenPoll || pending}
+            />
+            <Button onClick={onSend} disabled={hasOpenPoll || pending || !question.trim()}>
+              <SendIcon data-icon="inline-start" />
+              Send Poll
+            </Button>
+          </div>
+        </div>
+
+        {error ? (
+          <Alert variant="destructive">
+            <AlertCircleIcon data-icon="inline-start" />
+            <AlertTitle>Activity poll unavailable</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        {activityPoll ? (
+          <div className="grid gap-3 md:grid-cols-3">
+            <MarketMetric label="Expected" value={activityPoll.expectedCount} />
+            <MarketMetric label="Responded" value={activityPoll.respondedCount} />
+            <MarketMetric label="Inactive" value={activityPoll.inactiveCount} />
+          </div>
+        ) : null}
+
+        {activityPoll ? (
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <Badge variant={hasOpenPoll ? 'default' : 'secondary'}>
+                {hasOpenPoll ? 'Open' : 'Closed'}
+              </Badge>
+              {hasOpenPoll ? (
+                <Button variant="outline" onClick={onClose} disabled={closePending}>
+                  <CheckIcon data-icon="inline-start" />
+                  Close Poll
+                </Button>
+              ) : null}
+            </div>
+
+            {inactiveParticipants.length > 0 ? (
+              <div className="max-h-64 overflow-auto rounded-md border">
+                {inactiveParticipants.map((participant) => (
+                  <div key={participant.id} className="border-b px-4 py-3 last:border-b-0">
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <span className="truncate text-sm font-medium">{participant.phoneNumber ?? participant.id}</span>
+                      {participant.phoneNumber ? (
+                        <span className="truncate text-xs text-muted-foreground">{participant.id}</span>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No inactive members for this poll.</p>
+            )}
+          </div>
         ) : null}
       </CardContent>
     </Card>

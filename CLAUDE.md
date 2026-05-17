@@ -20,13 +20,15 @@ TypeScript/Express app with a single-instance WhatsApp socket managed as module-
 
 **`src/api-routes.ts`** — Public API router. Endpoints: `GET /status`, `/admin/*`, and `/join/*`.
 
-**`src/admin-routes.ts`** — OIDC-protected admin API routes: groups, tracked group users, stats, and settings.
+**`src/admin-routes.ts`** — OIDC-protected admin API routes: groups, tracked group users, activity polls, stats, and settings.
 
 **`src/join-routes.ts`** — Public terms approval API routes for join tokens.
 
 **`src/index.ts`** — Bootstraps Express, calls `connectDB()` and `connectToWhatsApp()` concurrently with the HTTP server starting.
 
 **`src/db.ts`** — Mongoose connection and `Message` model. Helpers: `saveMessage`, `updateAnalysis`, `getWeeklyPostCounts`, `getSentimentCounts`, `getMarketCounts`.
+
+**`src/activity-polls.ts`** — Activity poll persistence and response tracking for admin-initiated active-member checks.
 
 **`src/watcher.ts`** — Subscribes to `messages.upsert` on the Baileys socket for the group set in `WATCH_GROUP_ID`. Saves messages to MongoDB then fires async LLM analysis.
 
@@ -56,4 +58,4 @@ TypeScript/Express app with a single-instance WhatsApp socket managed as module-
 
 ## Dashboard
 
-Visit `GET /admin/dashboard` for the protected admin UI showing posts per day, sentiment breakdown, buy/sell gear counts, tracked group users, and join-request settings. JSON data is available at `GET /api/admin/stats`.
+Visit `GET /admin/dashboard` for the protected admin UI showing posts per day, sentiment breakdown, buy/sell gear counts, tracked group users, activity polls, and join-request settings. JSON data is available at `GET /api/admin/stats`.
