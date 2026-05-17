@@ -117,7 +117,7 @@ test('sends activity poll to WATCH_GROUP_ID', async () => {
   assert.deepEqual(sentContent, {
     poll: {
       name: 'Are you active?',
-      values: ["I'm active"],
+      values: ["I'm active", 'Still here'],
       selectableCount: 1,
     },
   });

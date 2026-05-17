@@ -176,7 +176,7 @@ export async function sendActivityPollToTrackedGroup(question: string, options: 
   const message = await activeSocket.sendMessage(groupId, {
     poll: {
       name: question,
-      values: ["I'm active"],
+      values: ["I'm active", "Still here"],
       selectableCount: 1,
     },
   });
