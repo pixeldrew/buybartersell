@@ -4,6 +4,7 @@ import { type WASocket } from '@whiskeysockets/baileys';
 import {
   createConnectedServicesStarter,
   listTrackedGroupUsers,
+  sendActivityPollToTrackedGroup,
   trackedGroupUsersFromMetadata,
 } from '../src/whatsapp.ts';
 
@@ -94,5 +95,44 @@ test('tracked group users require a connected socket', async () => {
   await assert.rejects(
     () => listTrackedGroupUsers({ isConnected: false, watchGroupId: '123@g.us' }),
     /WhatsApp is not connected/,
+  );
+});
+
+test('sends activity poll to WATCH_GROUP_ID', async () => {
+  let sentJid: string | undefined;
+  let sentContent: unknown;
+  const result = await sendActivityPollToTrackedGroup('Are you active?', {
+    isConnected: true,
+    watchGroupId: '123@g.us',
+    socket: {
+      sendMessage: async (jid: string, content: unknown) => {
+        sentJid = jid;
+        sentContent = content;
+        return { key: { id: 'poll-1' } };
+      },
+    },
+  });
+
+  assert.equal(sentJid, '123@g.us');
+  assert.deepEqual(sentContent, {
+    poll: {
+      name: 'Are you active?',
+      values: ["I'm active"],
+      selectableCount: 1,
+    },
+  });
+  assert.deepEqual(result, { groupId: '123@g.us', messageId: 'poll-1' });
+});
+
+test('activity poll sending requires a sent message id', async () => {
+  await assert.rejects(
+    () => sendActivityPollToTrackedGroup('Are you active?', {
+      isConnected: true,
+      watchGroupId: '123@g.us',
+      socket: {
+        sendMessage: async () => undefined,
+      },
+    }),
+    /WhatsApp did not return a poll message id/,
   );
 });

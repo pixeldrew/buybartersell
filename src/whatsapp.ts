@@ -13,6 +13,7 @@ import NodeCache from 'node-cache';
 import { startWatcher } from './watcher.ts';
 import { startJoinApproval } from './join-approval.ts';
 import { useMongoAuthState } from './auth-state.ts';
+import { startActivityPollTracker } from './activity-polls.ts';
 
 const INVITE_LINK_RE = /chat\.whatsapp\.com\/[A-Za-z0-9]+/;
 
@@ -50,6 +51,7 @@ type GroupMetadataLike = {
 };
 
 type GroupMetadataSocket = Pick<WASocket, 'groupMetadata'>;
+type SendMessageSocket = Pick<WASocket, 'sendMessage'>;
 
 const roleSortOrder: Record<TrackedGroupUserRole, number> = {
   superadmin: 0,
@@ -64,7 +66,7 @@ function prompt(question: string): Promise<string> {
 
 export function createConnectedServicesStarter(
   socket: WASocket,
-  starters: ConnectedServiceStarter[] = [startWatcher, startJoinApproval],
+  starters: ConnectedServiceStarter[] = [startWatcher, startJoinApproval, startActivityPollTracker],
 ): () => void {
   let started = false;
 
@@ -152,6 +154,37 @@ export async function sendGroupMessage(groupId: string, message: string): Promis
 
   const jid = groupId.endsWith('@g.us') ? groupId : `${groupId}@g.us`;
   await sock.sendMessage(jid, { text: message });
+}
+
+export async function sendActivityPollToTrackedGroup(question: string, options: {
+  socket?: SendMessageSocket;
+  isConnected?: boolean;
+  watchGroupId?: string;
+} = {}): Promise<{ groupId: string; messageId: string }> {
+  const watchGroupId = options.watchGroupId ?? process.env.WATCH_GROUP_ID;
+  if (!watchGroupId) {
+    throw new Error('WATCH_GROUP_ID is not configured');
+  }
+
+  const activeSocket = options.socket ?? sock;
+  const connected = options.isConnected ?? isConnected;
+  if (!connected || !activeSocket) {
+    throw new Error('WhatsApp is not connected');
+  }
+
+  const groupId = watchGroupId.endsWith('@g.us') ? watchGroupId : `${watchGroupId}@g.us`;
+  const message = await activeSocket.sendMessage(groupId, {
+    poll: {
+      name: question,
+      values: ["I'm active"],
+      selectableCount: 1,
+    },
+  });
+  if (!message?.key?.id) {
+    throw new Error('WhatsApp did not return a poll message id');
+  }
+
+  return { groupId, messageId: message.key.id };
 }
 
 export async function listGroups(): Promise<Array<{ id: string; subject: string; participants: number }>> {

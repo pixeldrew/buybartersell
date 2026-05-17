@@ -9,6 +9,13 @@ import {
   setAppUrl,
   setTermsGateEnabled,
 } from './admin-settings.ts';
+import {
+  ActivityPollOpenError,
+  closeActivityPoll,
+  getLatestActivityPoll,
+  parseActivityPollQuestionBody,
+} from './activity-polls.ts';
+import { createActivityPoll } from './activity-poll-service.ts';
 import { createRequireAdminApi, getConfiguredAdminEmails } from './auth.ts';
 
 const adminRouter = Router();
@@ -30,6 +37,52 @@ adminRouter.get('/tracked-group/users', async (_req: Request, res: Response) => 
     res.json({ trackedGroup });
   } catch (err) {
     res.status(503).json({ error: (err as Error).message });
+  }
+});
+
+adminRouter.get('/activity-polls/latest', async (_req: Request, res: Response) => {
+  try {
+    const activityPoll = await getLatestActivityPoll();
+    res.json({ activityPoll });
+  } catch (err) {
+    res.status(503).json({ error: (err as Error).message });
+  }
+});
+
+adminRouter.post('/activity-polls', async (req: Request, res: Response) => {
+  let question: string;
+  try {
+    question = parseActivityPollQuestionBody(req.body);
+  } catch (err) {
+    res.status(400).json({ error: (err as Error).message });
+    return;
+  }
+
+  try {
+    const activityPoll = await createActivityPoll(question);
+    res.json({ activityPoll });
+  } catch (err) {
+    if (err instanceof ActivityPollOpenError) {
+      res.status(409).json({ error: err.message });
+      return;
+    }
+
+    res.status(503).json({ error: (err as Error).message });
+  }
+});
+
+adminRouter.post('/activity-polls/:id/close', async (req: Request, res: Response) => {
+  const pollId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  if (!pollId) {
+    res.status(400).json({ error: 'poll id is required' });
+    return;
+  }
+
+  try {
+    const activityPoll = await closeActivityPoll(pollId);
+    res.json({ activityPoll });
+  } catch (err) {
+    res.status(404).json({ error: (err as Error).message });
   }
 });
 
