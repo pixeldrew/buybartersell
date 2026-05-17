@@ -9,7 +9,7 @@ on:
       - main
 
 env:
-  IMAGE: ghcr.io/pixeldrew/whatsapp-spam
+  IMAGE: ghcr.io/pixeldrew/buybartersell
 
 jobs:
   release:
