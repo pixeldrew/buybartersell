@@ -464,7 +464,7 @@ async function main(): Promise<void> {
     if (CONFIG.debug) console.log("    Mode   : DEBUG (showing LLM samples)\n");
     else console.log("");
 
-    // 1. Check Ollama
+    // 1. Check OpenRouter
     try {
         if (!process.env.ORKEY) throw new Error("ORKEY not set");
         const health = await fetch("https://openrouter.ai/api/v1/models", {

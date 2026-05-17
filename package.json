@@ -8,17 +8,22 @@
     "client/ui"
   ],
   "scripts": {
-    "build": "npm run build:server && npm run build:admin && npm run build:join",
+    "build": "npm run build:server && npm run build:analyze && npm run build:admin && npm run build:join",
     "build:server": "tsc",
+    "build:analyze": "tsc --project tsconfig.analyze.json && node bin/finalize-analyze-build.mjs",
     "build:admin": "npm --workspace buybartersell-admin run build",
     "build:join": "npm --workspace buybartersell-join run build",
     "start": "node dist/index.js",
     "dev": "ts-node --project tsconfig.json src/index.ts",
     "dev:admin": "npm --workspace buybartersell-admin run dev",
     "dev:join": "npm --workspace buybartersell-join run dev",
+    "test": "node --import ts-node/register --test tests/*.test.ts",
     "prepare": "husky"
   },
   "module": "dist/index.js",
+  "bin": {
+    "buybartersell-analyze": "dist/bin/analyze.mjs"
+  },
   "keywords": [
     "whatsapp",
     "moderation"

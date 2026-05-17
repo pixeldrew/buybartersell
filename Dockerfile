@@ -3,7 +3,7 @@ FROM node:24-alpine AS builder
 
 WORKDIR /build
 
-COPY package*.json tsconfig.json ./
+COPY package*.json tsconfig*.json ./
 COPY client/ ./client
 COPY bin/ ./bin
 
@@ -27,7 +27,6 @@ ENV PORT=3000
 
 WORKDIR /app
 
-COPY --from=builder /build/bin/analyze.ts ./bin/
 COPY --from=builder /build/dist ./dist
 COPY --from=builder /build/nm_prod/node_modules ./node_modules
 COPY --from=builder /build/package.json ./
