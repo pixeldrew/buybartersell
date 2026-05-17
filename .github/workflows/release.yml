@@ -39,6 +39,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
       - name: Release
         id: semantic
         if: github.event_name != 'pull_request'

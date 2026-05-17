@@ -104,14 +104,6 @@ All JSON API routes are mounted under `/api`.
 - `POST /api/join/:token/accept` - Accept terms and approve the join request
 - `POST /api/join/:token/reject` - Decline terms and reject the join request
 
-`POST /api/send` body:
-
-```json
-{ "groupId": "1234567890-1234567890@g.us", "message": "Hello!" }
-```
-
-The `@g.us` suffix is appended automatically if omitted.
-
 ### Protected Admin API
 
 Routes under `/api/admin/*` require Google OIDC login and an allowlisted,
@@ -158,8 +150,15 @@ Run batch analysis manually with:
 bin/analyze.ts
 ```
 
+In the production container, use the compiled runtime wrapper after the image
+has been built:
+
+```bash
+node dist/bin/analyze.mjs
+```
+
 For production scheduling, prefer a platform scheduled job or host cron that
-runs a one-off container command rather than cron inside the app container.
+runs this one-off container command rather than cron inside the app container.
 
 ## Terms Approval Gate
 
@@ -176,7 +175,7 @@ handle them.
 
 ```bash
 npm run build
-node --test --experimental-strip-types tests/*.test.ts
+npm test
 ```
 
 The Vite admin bundle currently emits a large chunk warning during build; the
