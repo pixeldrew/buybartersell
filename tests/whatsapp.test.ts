@@ -26,9 +26,9 @@ test('formats tracked group users from group metadata', () => {
     id: '123@g.us',
     subject: 'Tracked Group',
     participants: [
-      { id: 'zuser@lid' },
-      { id: '15551234567@s.whatsapp.net', admin: 'admin' },
-      { id: '15557654321@s.whatsapp.net', admin: 'superadmin' },
+      { id: 'zuser@lid', phoneNumber: '15550987654@s.whatsapp.net', notify: 'Z User' },
+      { id: '15551234567@s.whatsapp.net', admin: 'admin', name: 'Admin User' },
+      { id: '15557654321@s.whatsapp.net', admin: 'superadmin', pushname: 'Group Owner' },
       { id: '15550001111@s.whatsapp.net' },
     ],
   });
@@ -40,21 +40,25 @@ test('formats tracked group users from group metadata', () => {
       {
         id: '15557654321@s.whatsapp.net',
         phoneNumber: '15557654321',
+        displayName: 'Group Owner',
         role: 'superadmin',
       },
       {
         id: '15551234567@s.whatsapp.net',
         phoneNumber: '15551234567',
+        displayName: 'Admin User',
         role: 'admin',
       },
       {
         id: '15550001111@s.whatsapp.net',
         phoneNumber: '15550001111',
+        displayName: null,
         role: 'member',
       },
       {
         id: 'zuser@lid',
-        phoneNumber: null,
+        phoneNumber: '15550987654',
+        displayName: 'Z User',
         role: 'member',
       },
     ],
@@ -81,6 +85,16 @@ test('lists tracked group users for WATCH_GROUP_ID', async () => {
   assert.equal(requestedGroupId, '123@g.us');
   assert.equal(result.subject, 'Tracked Group');
   assert.equal(result.participants.length, 1);
+});
+
+test('formats tracked group users with metadata display names', async () => {
+  const result = trackedGroupUsersFromMetadata({
+    id: '123@g.us',
+    subject: 'Tracked Group',
+    participants: [{ id: '15551234567@s.whatsapp.net', verifiedName: 'Verified User' }],
+  });
+
+  assert.equal(result.participants[0]?.displayName, 'Verified User');
 });
 
 test('tracked group users require WATCH_GROUP_ID', async () => {

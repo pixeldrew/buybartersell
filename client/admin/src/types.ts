@@ -22,6 +22,7 @@ export type TrackedGroupUserRole = 'member' | 'admin' | 'superadmin';
 export interface TrackedGroupUser {
   id: string;
   phoneNumber: string | null;
+  displayName: string | null;
   role: TrackedGroupUserRole;
 }
 

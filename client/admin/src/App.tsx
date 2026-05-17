@@ -327,6 +327,18 @@ function roleVariant(role: TrackedGroupUserRole) {
   return role === 'member' ? 'secondary' : 'default';
 }
 
+function formatPhoneNumber(phoneNumber: string | null): string | null {
+  if (!phoneNumber) return null;
+  const digits = phoneNumber.replace(/\D/g, '');
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  return `+${digits}`;
+}
+
 function TrackedGroupUsersCard({
   trackedGroupUsers,
   error,
@@ -339,7 +351,7 @@ function TrackedGroupUsersCard({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <UsersIcon data-icon="inline-start" />
-          Tracked Group Users
+          Users
         </CardTitle>
         <CardDescription>
           {trackedGroupUsers
@@ -373,10 +385,10 @@ function TrackedGroupUsersCard({
                   className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b px-4 py-3 last:border-b-0"
                 >
                   <div className="flex min-w-0 flex-col gap-1">
-                    <span className="truncate text-sm font-medium">{user.phoneNumber ?? user.id}</span>
-                    {user.phoneNumber ? (
-                      <span className="truncate text-xs text-muted-foreground">{user.id}</span>
-                    ) : null}
+                    <span className="truncate text-sm font-medium">{user.displayName ?? formatPhoneNumber(user.phoneNumber) ?? user.id}</span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {formatPhoneNumber(user.phoneNumber) ?? user.id}
+                    </span>
                   </div>
                   <Badge variant={roleVariant(user.role)}>{roleLabel(user.role)}</Badge>
                 </div>

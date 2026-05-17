@@ -29,6 +29,7 @@ export type TrackedGroupUserRole = 'member' | 'admin' | 'superadmin';
 export interface TrackedGroupUser {
   id: string;
   phoneNumber: string | null;
+  displayName: string | null;
   role: TrackedGroupUserRole;
 }
 
@@ -40,6 +41,11 @@ export interface TrackedGroupUsers {
 
 type GroupParticipantLike = {
   id: string;
+  phoneNumber?: string;
+  name?: string;
+  notify?: string;
+  verifiedName?: string;
+  pushname?: string;
   admin?: 'admin' | 'superadmin' | null;
 };
 
@@ -167,7 +173,8 @@ export async function listGroups(): Promise<Array<{ id: string; subject: string;
   }));
 }
 
-function phoneNumberFromJid(jid: string): string | null {
+function phoneNumberFromJid(jid: string | undefined): string | null {
+  if (!jid) return null;
   const user = jid.split('@')[0];
   return /^\d+$/.test(user) ? user : null;
 }
@@ -176,12 +183,28 @@ function trackedGroupUserRole(admin: GroupParticipantLike['admin']): TrackedGrou
   return admin === 'admin' || admin === 'superadmin' ? admin : 'member';
 }
 
+function cleanDisplayName(value: string | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function displayNameFromParticipant(participant: GroupParticipantLike): string | null {
+  return (
+    cleanDisplayName(participant.name) ??
+    cleanDisplayName(participant.notify) ??
+    cleanDisplayName(participant.verifiedName) ??
+    cleanDisplayName(participant.pushname) ??
+    null
+  );
+}
+
 export function trackedGroupUsersFromMetadata(metadata: GroupMetadataLike): TrackedGroupUsers {
   const participants = metadata.participants
     .map((participant) => {
       return {
         id: participant.id,
-        phoneNumber: phoneNumberFromJid(participant.id),
+        phoneNumber: phoneNumberFromJid(participant.phoneNumber) ?? phoneNumberFromJid(participant.id),
+        displayName: displayNameFromParticipant(participant),
         role: trackedGroupUserRole(participant.admin),
       };
     })
