@@ -4,6 +4,7 @@ import { type WASocket } from '@whiskeysockets/baileys';
 import {
   createConnectedServicesStarter,
   listTrackedGroupUsers,
+  removeTrackedGroupUser,
   trackedGroupUsersFromMetadata,
 } from '../src/whatsapp.ts';
 
@@ -108,5 +109,31 @@ test('tracked group users require a connected socket', async () => {
   await assert.rejects(
     () => listTrackedGroupUsers({ isConnected: false, watchGroupId: '123@g.us' }),
     /WhatsApp is not connected/,
+  );
+});
+
+test('removes tracked group user from WATCH_GROUP_ID', async () => {
+  const updates: Array<{ groupId: string; users: string[]; action: string }> = [];
+  await removeTrackedGroupUser('15551234567@s.whatsapp.net', {
+    isConnected: true,
+    watchGroupId: '123@g.us',
+    socket: {
+      groupParticipantsUpdate: async (groupId: string, users: string[], action: string) => {
+        updates.push({ groupId, users, action });
+      },
+    },
+  });
+
+  assert.deepEqual(updates, [{
+    groupId: '123@g.us',
+    users: ['15551234567@s.whatsapp.net'],
+    action: 'remove',
+  }]);
+});
+
+test('tracked group user removal requires participant id', async () => {
+  await assert.rejects(
+    () => removeTrackedGroupUser(' ', { isConnected: true, watchGroupId: '123@g.us', socket: { groupParticipantsUpdate: async () => undefined } }),
+    /participantId is required/,
   );
 });

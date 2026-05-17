@@ -117,6 +117,7 @@ Admin API routes:
 
 - `GET /api/admin/groups` - WhatsApp groups visible to the bot
 - `GET /api/admin/tracked-group/users` - users in the configured tracked group
+- `POST /api/admin/tracked-group/users/remove` - remove a member from the tracked group
 - `GET /api/admin/stats`
 - `GET /api/admin/settings`
 - `POST /api/admin/settings/app-url`

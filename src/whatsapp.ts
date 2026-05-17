@@ -56,6 +56,7 @@ type GroupMetadataLike = {
 };
 
 type GroupMetadataSocket = Pick<WASocket, 'groupMetadata'>;
+type GroupParticipantsUpdateSocket = Pick<WASocket, 'groupParticipantsUpdate'>;
 
 const roleSortOrder: Record<TrackedGroupUserRole, number> = {
   superadmin: 0,
@@ -239,6 +240,28 @@ export async function listTrackedGroupUsers(options: {
 
   const metadata = await activeSocket.groupMetadata(watchGroupId);
   return trackedGroupUsersFromMetadata(metadata);
+}
+
+export async function removeTrackedGroupUser(participantId: string, options: {
+  socket?: GroupParticipantsUpdateSocket;
+  isConnected?: boolean;
+  watchGroupId?: string;
+} = {}): Promise<void> {
+  const watchGroupId = options.watchGroupId ?? process.env.WATCH_GROUP_ID;
+  if (!watchGroupId) {
+    throw new Error('WATCH_GROUP_ID is not configured');
+  }
+  if (!participantId.trim()) {
+    throw new Error('participantId is required');
+  }
+
+  const activeSocket = options.socket ?? sock;
+  const connected = options.isConnected ?? isConnected;
+  if (!connected || !activeSocket) {
+    throw new Error('WhatsApp is not connected');
+  }
+
+  await activeSocket.groupParticipantsUpdate(watchGroupId, [participantId], 'remove');
 }
 
 function extractMessageText(msg: proto.IWebMessageInfo): string {
