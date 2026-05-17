@@ -8,8 +8,7 @@
     "client/ui"
   ],
   "scripts": {
-    "build": "npm run build:favicon && npm run build:server && npm run build:admin && npm run build:join",
-    "build:favicon": "node bin/generate-kite-favicon.mjs",
+    "build": "npm run build:server && npm run build:admin && npm run build:join",
     "build:server": "tsc",
     "build:admin": "npm --workspace buybartersell-admin run build",
     "build:join": "npm --workspace buybartersell-join run build",
