@@ -3,8 +3,6 @@ FROM node:24-alpine AS builder
 
 WORKDIR /build
 
-RUN apk add --no-cache imagemagick librsvg
-
 COPY package*.json tsconfig.json ./
 COPY client/ ./client
 COPY bin/ ./bin
