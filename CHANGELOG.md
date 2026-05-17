@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/pixeldrew/buybartersell/compare/v1.1.0...v1.2.0) (2026-05-17)
+
+
+### Features
+
+* **admin:** show tracked group users in dashboard ([04d1029](https://github.com/pixeldrew/buybartersell/commit/04d102968b2902c23ff9ebeda128f760171adf31))
+
 # [1.1.0](https://github.com/pixeldrew/buybartersell/compare/v1.0.0...v1.1.0) (2026-05-17)
 
 
