@@ -116,6 +116,7 @@ verified email. Unauthenticated API requests return:
 Admin API routes:
 
 - `GET /api/admin/groups` - WhatsApp groups visible to the bot
+- `GET /api/admin/tracked-group/users` - users in the configured tracked group
 - `GET /api/admin/stats`
 - `GET /api/admin/settings`
 - `POST /api/admin/settings/app-url`

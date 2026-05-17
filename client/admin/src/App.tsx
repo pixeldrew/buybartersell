@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircleIcon, LogInIcon, RefreshCwIcon, SaveIcon } from 'lucide-react';
+import { AlertCircleIcon, LogInIcon, RefreshCwIcon, SaveIcon, UsersIcon } from 'lucide-react';
 import {
   Bar,
   BarChart,
@@ -11,8 +11,8 @@ import {
   YAxis,
 } from 'recharts';
 import type { PieLabelRenderProps } from 'recharts';
-import { getSettings, getStats, isAuthenticationRequiredError, setAppUrl, setTermsGate } from './api';
-import type { AdminSettings, AdminStats } from './types';
+import { getSettings, getStats, getTrackedGroupUsers, isAuthenticationRequiredError, setAppUrl, setTermsGate } from './api';
+import type { AdminSettings, AdminStats, TrackedGroupUserRole, TrackedGroupUsers } from './types';
 import { Alert, AlertDescription, AlertTitle } from '@buybartersell/ui/components/ui/alert';
 import { Badge } from '@buybartersell/ui/components/ui/badge';
 import { Button } from '@buybartersell/ui/components/ui/button';
@@ -83,6 +83,7 @@ function renderSentimentLabel({
 export function App() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [settings, setSettings] = useState<AdminSettings | null>(null);
+  const [trackedGroupUsers, setTrackedGroupUsers] = useState<TrackedGroupUsers | null>(null);
   const [appUrlInput, setAppUrlInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -90,17 +91,34 @@ export function App() {
   const [appUrlPending, setAppUrlPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [trackedGroupUsersError, setTrackedGroupUsersError] = useState<string | null>(null);
   const [authenticationRequired, setAuthenticationRequired] = useState(false);
 
   async function loadDashboard() {
     setError(null);
+    setTrackedGroupUsersError(null);
     setAuthenticationRequired(false);
     setRefreshing(true);
     try {
-      const [nextStats, nextSettings] = await Promise.all([getStats(), getSettings()]);
+      const trackedGroupUsersRequest = getTrackedGroupUsers()
+        .then((response) => ({ status: 'fulfilled' as const, value: response.trackedGroup }))
+        .catch((err) => ({ status: 'rejected' as const, reason: err }));
+      const [nextStats, nextSettings, nextTrackedGroupUsers] = await Promise.all([
+        getStats(),
+        getSettings(),
+        trackedGroupUsersRequest,
+      ]);
       setStats(nextStats);
       setSettings(nextSettings);
       setAppUrlInput(nextSettings.appUrl);
+      if (nextTrackedGroupUsers.status === 'fulfilled') {
+        setTrackedGroupUsers(nextTrackedGroupUsers.value);
+      } else if (isAuthenticationRequiredError(nextTrackedGroupUsers.reason)) {
+        setAuthenticationRequired(true);
+      } else {
+        setTrackedGroupUsers(null);
+        setTrackedGroupUsersError((nextTrackedGroupUsers.reason as Error).message);
+      }
     } catch (err) {
       if (isAuthenticationRequiredError(err)) {
         setAuthenticationRequired(true);
@@ -232,6 +250,8 @@ export function App() {
           </Card>
         ) : null}
 
+        <TrackedGroupUsersCard trackedGroupUsers={trackedGroupUsers} error={trackedGroupUsersError} />
+
         {stats ? (
           <section className="grid gap-6 lg:grid-cols-3">
             <Card className="lg:col-span-2">
@@ -294,6 +314,80 @@ export function App() {
         ) : null}
       </div>
     </main>
+  );
+}
+
+function roleLabel(role: TrackedGroupUserRole) {
+  if (role === 'superadmin') return 'Owner';
+  if (role === 'admin') return 'Admin';
+  return 'Member';
+}
+
+function roleVariant(role: TrackedGroupUserRole) {
+  return role === 'member' ? 'secondary' : 'default';
+}
+
+function TrackedGroupUsersCard({
+  trackedGroupUsers,
+  error,
+}: {
+  trackedGroupUsers: TrackedGroupUsers | null;
+  error: string | null;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <UsersIcon data-icon="inline-start" />
+          Tracked Group Users
+        </CardTitle>
+        <CardDescription>
+          {trackedGroupUsers
+            ? `${trackedGroupUsers.subject} - ${trackedGroupUsers.participants.length} users`
+            : 'Users from the configured tracked WhatsApp group.'}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        {error ? (
+          <Alert variant="destructive">
+            <AlertCircleIcon data-icon="inline-start" />
+            <AlertTitle>Users unavailable</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        {!error && !trackedGroupUsers ? (
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-14 w-full" />
+            <Skeleton className="h-14 w-full" />
+            <Skeleton className="h-14 w-full" />
+          </div>
+        ) : null}
+
+        {trackedGroupUsers ? (
+          trackedGroupUsers.participants.length > 0 ? (
+            <div className="max-h-80 overflow-auto rounded-md border">
+              {trackedGroupUsers.participants.map((user) => (
+                <div
+                  key={user.id}
+                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b px-4 py-3 last:border-b-0"
+                >
+                  <div className="flex min-w-0 flex-col gap-1">
+                    <span className="truncate text-sm font-medium">{user.phoneNumber ?? user.id}</span>
+                    {user.phoneNumber ? (
+                      <span className="truncate text-xs text-muted-foreground">{user.id}</span>
+                    ) : null}
+                  </div>
+                  <Badge variant={roleVariant(user.role)}>{roleLabel(user.role)}</Badge>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No users found for this group.</p>
+          )
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 

@@ -20,7 +20,7 @@ TypeScript/Express app with a single-instance WhatsApp socket managed as module-
 
 **`src/api-routes.ts`** — Public API router. Endpoints: `GET /status`, `/admin/*`, and `/join/*`.
 
-**`src/admin-routes.ts`** — OIDC-protected admin API routes: groups, stats, and settings.
+**`src/admin-routes.ts`** — OIDC-protected admin API routes: groups, tracked group users, stats, and settings.
 
 **`src/join-routes.ts`** — Public terms approval API routes for join tokens.
 
@@ -56,4 +56,4 @@ TypeScript/Express app with a single-instance WhatsApp socket managed as module-
 
 ## Dashboard
 
-Visit `GET /admin/dashboard` for the protected admin UI showing posts per day, sentiment breakdown, buy/sell gear counts, and join-request settings. JSON data is available at `GET /api/admin/stats`.
+Visit `GET /admin/dashboard` for the protected admin UI showing posts per day, sentiment breakdown, buy/sell gear counts, tracked group users, and join-request settings. JSON data is available at `GET /api/admin/stats`.
