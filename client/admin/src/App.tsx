@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircleIcon, CheckIcon, LogInIcon, RefreshCwIcon, SaveIcon, SendIcon, UsersIcon } from 'lucide-react';
+import { AlertCircleIcon, CheckIcon, LogInIcon, RefreshCwIcon, SaveIcon, SendIcon, Trash2Icon, UsersIcon } from 'lucide-react';
 import {
   Bar,
   BarChart,
@@ -19,6 +19,7 @@ import {
   getStats,
   getTrackedGroupUsers,
   isAuthenticationRequiredError,
+  removeTrackedGroupUser,
   setAppUrl,
   setTermsGate,
 } from './api';
@@ -110,16 +111,18 @@ export function App() {
   const [activityPollError, setActivityPollError] = useState<string | null>(null);
   const [authenticationRequired, setAuthenticationRequired] = useState(false);
 
-  async function loadDashboard() {
+  async function loadDashboard(options: { skipTrackedGroupUsers?: boolean } = {}) {
     setError(null);
     setTrackedGroupUsersError(null);
     setActivityPollError(null);
     setAuthenticationRequired(false);
     setRefreshing(true);
     try {
-      const trackedGroupUsersRequest = getTrackedGroupUsers()
-        .then((response) => ({ status: 'fulfilled' as const, value: response.trackedGroup }))
-        .catch((err) => ({ status: 'rejected' as const, reason: err }));
+      const trackedGroupUsersRequest = options.skipTrackedGroupUsers
+        ? Promise.resolve({ status: 'skipped' as const })
+        : getTrackedGroupUsers()
+          .then((response) => ({ status: 'fulfilled' as const, value: response.trackedGroup }))
+          .catch((err) => ({ status: 'rejected' as const, reason: err }));
       const activityPollRequest = getLatestActivityPoll()
         .then((response) => ({ status: 'fulfilled' as const, value: response.activityPoll }))
         .catch((err) => ({ status: 'rejected' as const, reason: err }));
@@ -134,6 +137,8 @@ export function App() {
       setAppUrlInput(nextSettings.appUrl);
       if (nextTrackedGroupUsers.status === 'fulfilled') {
         setTrackedGroupUsers(nextTrackedGroupUsers.value);
+      } else if (nextTrackedGroupUsers.status === 'skipped') {
+        // Skip touching tracked-group state in optimistic refresh paths.
       } else if (isAuthenticationRequiredError(nextTrackedGroupUsers.reason)) {
         setAuthenticationRequired(true);
       } else {
@@ -314,7 +319,32 @@ export function App() {
           </Card>
         ) : null}
 
-        <TrackedGroupUsersCard trackedGroupUsers={trackedGroupUsers} error={trackedGroupUsersError} />
+        <TrackedGroupUsersCard
+          trackedGroupUsers={trackedGroupUsers}
+          error={trackedGroupUsersError}
+          onRemoved={(participantId) => {
+            setTrackedGroupUsers((current) => {
+              if (!current) return current;
+              return {
+                ...current,
+                participants: current.participants.filter((entry) => entry.id !== participantId),
+              };
+            });
+            setTrackedGroupUsersError(null);
+            void loadDashboard({ skipTrackedGroupUsers: true });
+            void getTrackedGroupUsers()
+              .then((response) => {
+                setTrackedGroupUsers(response.trackedGroup);
+              })
+              .catch((err) => {
+                if (isAuthenticationRequiredError(err)) {
+                  setAuthenticationRequired(true);
+                  return;
+                }
+                setTrackedGroupUsersError((err as Error).message);
+              });
+          }}
+        />
 
         <ActivityPollCard
           activityPoll={activityPoll}
@@ -402,19 +432,53 @@ function roleVariant(role: TrackedGroupUserRole) {
   return role === 'member' ? 'secondary' : 'default';
 }
 
+function formatPhoneNumber(phoneNumber: string | null): string | null {
+  if (!phoneNumber) return null;
+  const digits = phoneNumber.replace(/\D/g, '');
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  return `+${digits}`;
+}
+
 function TrackedGroupUsersCard({
   trackedGroupUsers,
   error,
+  onRemoved,
 }: {
   trackedGroupUsers: TrackedGroupUsers | null;
   error: string | null;
+  onRemoved: (participantId: string) => void;
 }) {
+  const [removePendingId, setRemovePendingId] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+
+  async function removeUser(user: TrackedGroupUsers['participants'][number]) {
+    const identity = user.displayName ?? formatPhoneNumber(user.phoneNumber) ?? user.id;
+    const confirmed = window.confirm(`Remove ${identity} from ${trackedGroupUsers?.subject ?? 'the tracked group'}?`);
+    if (!confirmed) return;
+
+    setRemoveError(null);
+    setRemovePendingId(user.id);
+    try {
+      await removeTrackedGroupUser(user.id);
+      onRemoved(user.id);
+    } catch (err) {
+      setRemoveError((err as Error).message);
+    } finally {
+      setRemovePendingId(null);
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <UsersIcon data-icon="inline-start" />
-          Tracked Group Users
+          Users
         </CardTitle>
         <CardDescription>
           {trackedGroupUsers
@@ -428,6 +492,14 @@ function TrackedGroupUsersCard({
             <AlertCircleIcon data-icon="inline-start" />
             <AlertTitle>Users unavailable</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        {removeError ? (
+          <Alert variant="destructive">
+            <AlertCircleIcon data-icon="inline-start" />
+            <AlertTitle>Remove failed</AlertTitle>
+            <AlertDescription>{removeError}</AlertDescription>
           </Alert>
         ) : null}
 
@@ -445,15 +517,28 @@ function TrackedGroupUsersCard({
               {trackedGroupUsers.participants.map((user) => (
                 <div
                   key={user.id}
-                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b px-4 py-3 last:border-b-0"
+                  className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 border-b px-4 py-3 last:border-b-0"
                 >
                   <div className="flex min-w-0 flex-col gap-1">
-                    <span className="truncate text-sm font-medium">{user.phoneNumber ?? user.id}</span>
-                    {user.phoneNumber ? (
-                      <span className="truncate text-xs text-muted-foreground">{user.id}</span>
-                    ) : null}
+                    <span className="truncate text-sm font-medium">{user.displayName ?? formatPhoneNumber(user.phoneNumber) ?? user.id}</span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {formatPhoneNumber(user.phoneNumber) ?? user.id}
+                    </span>
                   </div>
                   <Badge variant={roleVariant(user.role)}>{roleLabel(user.role)}</Badge>
+                  {user.role === 'member' ? (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={removePendingId === user.id}
+                      onClick={() => void removeUser(user)}
+                    >
+                      <Trash2Icon data-icon="inline-start" />
+                      Remove
+                    </Button>
+                  ) : (
+                    <span />
+                  )}
                 </div>
               ))}
             </div>

@@ -57,6 +57,13 @@ export function closeActivityPoll(id: string): Promise<{ activityPoll: ActivityP
   });
 }
 
+export function removeTrackedGroupUser(participantId: string): Promise<{ ok: true }> {
+  return requestJson<{ ok: true }>('/api/admin/tracked-group/users/remove', {
+    method: 'POST',
+    body: JSON.stringify({ participantId }),
+  });
+}
+
 export function setTermsGate(enabled: boolean): Promise<Pick<AdminSettings, 'termsGateEnabled'>> {
   return requestJson<Pick<AdminSettings, 'termsGateEnabled'>>('/api/admin/settings/terms-gate', {
     method: 'POST',

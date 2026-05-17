@@ -120,6 +120,7 @@ Admin API routes:
 - `GET /api/admin/activity-polls/latest` - latest activity poll and inactive users
 - `POST /api/admin/activity-polls` - send a new activity poll
 - `POST /api/admin/activity-polls/:id/close` - close the open activity poll
+- `POST /api/admin/tracked-group/users/remove` - remove a member from the tracked group
 - `GET /api/admin/stats`
 - `GET /api/admin/settings`
 - `POST /api/admin/settings/app-url`
