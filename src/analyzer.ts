@@ -1,4 +1,9 @@
-import { getUnanalyzedMessagesFromLastHour, updateAnalysis, type GearAnalysis } from './db.ts';
+import {
+  getUnanalyzedListingThreadsFromLastHour,
+  updateAnalysisForMessages,
+  updateListingThreadAnalysis,
+  type GearAnalysis,
+} from './db.ts';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -110,15 +115,16 @@ export async function analyzeMessage(text: string, mediaCount = 0): Promise<Gear
 // ─── Batch runner ─────────────────────────────────────────────────────────────
 
 export async function runBatchAnalysis(): Promise<void> {
-  const messages = await getUnanalyzedMessagesFromLastHour();
-  console.log(`[analyzer] ${messages.length} unanalyzed message(s) in the last hour`);
-  for (const msg of messages) {
+  const listingThreads = await getUnanalyzedListingThreadsFromLastHour();
+  console.log(`[analyzer] ${listingThreads.length} unanalyzed listing thread(s) in the last hour`);
+  for (const thread of listingThreads) {
     try {
-      const analysis = await analyzeMessage(msg.text, msg.mediaFiles.length);
-      await updateAnalysis(msg.messageId, analysis);
-      console.log(`[analyzer] ${msg.messageId} → ${analysis.sentiment}`);
+      const analysis = await analyzeMessage(thread.combinedText, thread.mediaCount);
+      await updateListingThreadAnalysis(String(thread._id), analysis);
+      await updateAnalysisForMessages(thread.messageIds, analysis);
+      console.log(`[analyzer] thread ${thread._id} (${thread.messageIds.length} msg) → ${analysis.sentiment}`);
     } catch (err) {
-      console.error(`[analyzer] ${msg.messageId} failed:`, (err as Error).message);
+      console.error(`[analyzer] thread ${thread._id} failed:`, (err as Error).message);
     }
   }
 }

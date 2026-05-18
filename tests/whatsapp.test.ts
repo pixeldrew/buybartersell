@@ -99,6 +99,43 @@ test('formats tracked group users with metadata display names', async () => {
   assert.equal(result.participants[0]?.displayName, 'Verified User');
 });
 
+test('lists tracked group users with socket name fallback', async () => {
+  const result = await listTrackedGroupUsers({
+    isConnected: true,
+    watchGroupId: '123@g.us',
+    socket: {
+      groupMetadata: async (groupId: string) => ({
+        id: groupId,
+        subject: 'Tracked Group',
+        participants: [{ id: '15551234567@s.whatsapp.net' }],
+      }),
+      getName: async () => 'Fallback Name',
+    } as unknown as WASocket,
+  });
+
+  assert.equal(result.participants[0]?.displayName, 'Fallback Name');
+});
+
+test('lists tracked group users with contacts fallback when getName is not useful', async () => {
+  const result = await listTrackedGroupUsers({
+    isConnected: true,
+    watchGroupId: '123@g.us',
+    socket: {
+      groupMetadata: async (groupId: string) => ({
+        id: groupId,
+        subject: 'Tracked Group',
+        participants: [{ id: '15551234567@s.whatsapp.net' }],
+      }),
+      getName: async () => '15551234567@s.whatsapp.net',
+      contacts: {
+        '15551234567@s.whatsapp.net': { name: 'Lucy Chen' },
+      },
+    } as unknown as WASocket,
+  });
+
+  assert.equal(result.participants[0]?.displayName, 'Lucy Chen');
+});
+
 test('tracked group users require WATCH_GROUP_ID', async () => {
   await assert.rejects(
     () => listTrackedGroupUsers({ isConnected: true, watchGroupId: '' }),

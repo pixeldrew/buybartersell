@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import { proto, type WASocket, type WAMessage, type GroupMetadata, type GroupParticipant, downloadMediaMessage } from '@whiskeysockets/baileys';
-import { saveMessage, type IMediaFile } from './db.ts';
+import { saveMessage, upsertListingThreadForMessage, type IMediaFile } from './db.ts';
 
 // ─── Media directory ──────────────────────────────────────────────────────────
 
@@ -347,6 +347,16 @@ export function startWatcher(sock: WASocket): void {
           text: entry.text,
           timestamp: entry.timestamp,
           mediaFiles,
+          links: entry.links,
+        });
+        await upsertListingThreadForMessage({
+          groupId: groupJid,
+          sender: entry.sender,
+          phoneNumber: entry.phoneNumber,
+          messageId: entry.messageId,
+          text: entry.text,
+          timestamp: entry.timestamp,
+          mediaCount: mediaFiles.length,
           links: entry.links,
         });
         console.log(`[watcher] saved ${entry.messageId}${mediaFiles.length ? ` (+${mediaFiles.length} media)` : ''}${entry.links.length ? ` (${entry.links.length} links)` : ''}`);

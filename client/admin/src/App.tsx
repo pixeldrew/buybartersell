@@ -250,7 +250,7 @@ export function App() {
         <header className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-normal">WhatsApp Group Stats</h1>
+              <h1 className="text-2xl font-semibold tracking-normal">BuyBarterSell Stats</h1>
               <Badge variant={settings?.termsGateEnabled ? 'default' : 'secondary'}>
                 Terms Gate {settings?.termsGateEnabled ? 'Enabled' : 'Disabled'}
               </Badge>
@@ -453,8 +453,33 @@ function TrackedGroupUsersCard({
   error: string | null;
   onRemoved: (participantId: string) => void;
 }) {
+  const [searchQuery, setSearchQuery] = useState('');
   const [removePendingId, setRemovePendingId] = useState<string | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
+  const filteredParticipants = useMemo(() => {
+    if (!trackedGroupUsers) return [];
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return trackedGroupUsers.participants;
+
+    const queryDigits = query.replace(/\D/g, '');
+    return trackedGroupUsers.participants.filter((user) => {
+      const name = (user.displayName ?? '').toLowerCase();
+      if (name.includes(query)) return true;
+
+      const formattedPhone = formatPhoneNumber(user.phoneNumber) ?? '';
+      const rawPhone = user.phoneNumber ?? '';
+      const formattedPhoneLower = formattedPhone.toLowerCase();
+      if (formattedPhoneLower.includes(query) || rawPhone.includes(query)) return true;
+
+      if (queryDigits) {
+        const formattedDigits = formattedPhone.replace(/\D/g, '');
+        const rawDigits = rawPhone.replace(/\D/g, '');
+        if (formattedDigits.includes(queryDigits) || rawDigits.includes(queryDigits)) return true;
+      }
+
+      return false;
+    });
+  }, [trackedGroupUsers, searchQuery]);
 
   async function removeUser(user: TrackedGroupUsers['participants'][number]) {
     const identity = user.displayName ?? formatPhoneNumber(user.phoneNumber) ?? user.id;
@@ -513,8 +538,16 @@ function TrackedGroupUsersCard({
 
         {trackedGroupUsers ? (
           trackedGroupUsers.participants.length > 0 ? (
+            <>
+              <Input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search by name or phone"
+                type="search"
+              />
+              {filteredParticipants.length > 0 ? (
             <div className="max-h-80 overflow-auto rounded-md border">
-              {trackedGroupUsers.participants.map((user) => (
+              {filteredParticipants.map((user) => (
                 <div
                   key={user.id}
                   className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 border-b px-4 py-3 last:border-b-0"
@@ -542,6 +575,10 @@ function TrackedGroupUsersCard({
                 </div>
               ))}
             </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No users match your search.</p>
+              )}
+            </>
           ) : (
             <p className="text-sm text-muted-foreground">No users found for this group.</p>
           )

@@ -59,6 +59,15 @@ type GroupMetadataLike = {
 type GroupMetadataSocket = Pick<WASocket, 'groupMetadata'>;
 type SendMessageSocket = Pick<WASocket, 'sendMessage'>;
 type GroupParticipantsUpdateSocket = Pick<WASocket, 'groupParticipantsUpdate'>;
+type NameLookupSocket = {
+  getName?: (jid: string) => Promise<string | undefined> | string | undefined;
+  contacts?: Record<string, {
+    name?: string;
+    notify?: string;
+    verifiedName?: string;
+    pushname?: string;
+  }>;
+};
 
 const roleSortOrder: Record<TrackedGroupUserRole, number> = {
   superadmin: 0,
@@ -232,6 +241,40 @@ function displayNameFromParticipant(participant: GroupParticipantLike): string |
   );
 }
 
+function isJidLike(value: string): boolean {
+  return value.includes('@');
+}
+
+function normalizeDigits(value: string): string {
+  return value.replace(/\D/g, '');
+}
+
+function isUsefulDisplayName(value: string, participant: TrackedGroupUser): boolean {
+  if (!value) return false;
+  if (isJidLike(value)) return false;
+  const normalizedNameDigits = normalizeDigits(value);
+  if (participant.phoneNumber && normalizedNameDigits && normalizedNameDigits === normalizeDigits(participant.phoneNumber)) {
+    return false;
+  }
+  return true;
+}
+
+function displayNameFromContact(contact: {
+  name?: string;
+  notify?: string;
+  verifiedName?: string;
+  pushname?: string;
+} | undefined): string | null {
+  if (!contact) return null;
+  return (
+    cleanDisplayName(contact.name) ??
+    cleanDisplayName(contact.notify) ??
+    cleanDisplayName(contact.verifiedName) ??
+    cleanDisplayName(contact.pushname) ??
+    null
+  );
+}
+
 export function trackedGroupUsersFromMetadata(metadata: GroupMetadataLike): TrackedGroupUsers {
   const participants = metadata.participants
     .map((participant) => {
@@ -272,7 +315,34 @@ export async function listTrackedGroupUsers(options: {
   }
 
   const metadata = await activeSocket.groupMetadata(watchGroupId);
-  return trackedGroupUsersFromMetadata(metadata);
+  const trackedGroup = trackedGroupUsersFromMetadata(metadata);
+  const lookupSocket = activeSocket as NameLookupSocket;
+
+  const participants = await Promise.all(trackedGroup.participants.map(async (participant) => {
+    if (participant.displayName) return participant;
+    const fromGetName = lookupSocket.getName
+      ? cleanDisplayName(await lookupSocket.getName(participant.id))
+      : null;
+    if (fromGetName && isUsefulDisplayName(fromGetName, participant)) {
+      return { ...participant, displayName: fromGetName };
+    }
+
+    const contacts = lookupSocket.contacts;
+    const fromContactById = displayNameFromContact(contacts?.[participant.id]);
+    if (fromContactById && isUsefulDisplayName(fromContactById, participant)) {
+      return { ...participant, displayName: fromContactById };
+    }
+
+    const phoneJid = participant.phoneNumber ? `${participant.phoneNumber}@s.whatsapp.net` : null;
+    const fromContactByPhone = phoneJid ? displayNameFromContact(contacts?.[phoneJid]) : null;
+    if (fromContactByPhone && isUsefulDisplayName(fromContactByPhone, participant)) {
+      return { ...participant, displayName: fromContactByPhone };
+    }
+
+    return participant;
+  }));
+
+  return { ...trackedGroup, participants };
 }
 
 export async function removeTrackedGroupUser(participantId: string, options: {
