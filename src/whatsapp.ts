@@ -13,6 +13,7 @@ import NodeCache from 'node-cache';
 import { startWatcher } from './watcher.ts';
 import { startJoinApproval } from './join-approval.ts';
 import { useMongoAuthState } from './auth-state.ts';
+import { startActivityPollTracker } from './activity-polls.ts';
 
 const INVITE_LINK_RE = /chat\.whatsapp\.com\/[A-Za-z0-9]+/;
 
@@ -29,6 +30,7 @@ export type TrackedGroupUserRole = 'member' | 'admin' | 'superadmin';
 export interface TrackedGroupUser {
   id: string;
   phoneNumber: string | null;
+  displayName: string | null;
   role: TrackedGroupUserRole;
 }
 
@@ -40,6 +42,11 @@ export interface TrackedGroupUsers {
 
 type GroupParticipantLike = {
   id: string;
+  phoneNumber?: string;
+  name?: string;
+  notify?: string;
+  verifiedName?: string;
+  pushname?: string;
   admin?: 'admin' | 'superadmin' | null;
 };
 
@@ -50,6 +57,17 @@ type GroupMetadataLike = {
 };
 
 type GroupMetadataSocket = Pick<WASocket, 'groupMetadata'>;
+type SendMessageSocket = Pick<WASocket, 'sendMessage'>;
+type GroupParticipantsUpdateSocket = Pick<WASocket, 'groupParticipantsUpdate'>;
+type NameLookupSocket = {
+  getName?: (jid: string) => Promise<string | undefined> | string | undefined;
+  contacts?: Record<string, {
+    name?: string;
+    notify?: string;
+    verifiedName?: string;
+    pushname?: string;
+  }>;
+};
 
 const roleSortOrder: Record<TrackedGroupUserRole, number> = {
   superadmin: 0,
@@ -64,7 +82,7 @@ function prompt(question: string): Promise<string> {
 
 export function createConnectedServicesStarter(
   socket: WASocket,
-  starters: ConnectedServiceStarter[] = [startWatcher, startJoinApproval],
+  starters: ConnectedServiceStarter[] = [startWatcher, startJoinApproval, startActivityPollTracker],
 ): () => void {
   let started = false;
 
@@ -154,6 +172,37 @@ export async function sendGroupMessage(groupId: string, message: string): Promis
   await sock.sendMessage(jid, { text: message });
 }
 
+export async function sendActivityPollToTrackedGroup(question: string, options: {
+  socket?: SendMessageSocket;
+  isConnected?: boolean;
+  watchGroupId?: string;
+} = {}): Promise<{ groupId: string; messageId: string }> {
+  const watchGroupId = options.watchGroupId ?? process.env.WATCH_GROUP_ID;
+  if (!watchGroupId) {
+    throw new Error('WATCH_GROUP_ID is not configured');
+  }
+
+  const activeSocket = options.socket ?? sock;
+  const connected = options.isConnected ?? isConnected;
+  if (!connected || !activeSocket) {
+    throw new Error('WhatsApp is not connected');
+  }
+
+  const groupId = watchGroupId.endsWith('@g.us') ? watchGroupId : `${watchGroupId}@g.us`;
+  const message = await activeSocket.sendMessage(groupId, {
+    poll: {
+      name: question,
+      values: ["I'm active", "Still here"],
+      selectableCount: 1,
+    },
+  });
+  if (!message?.key?.id) {
+    throw new Error('WhatsApp did not return a poll message id');
+  }
+
+  return { groupId, messageId: message.key.id };
+}
+
 export async function listGroups(): Promise<Array<{ id: string; subject: string; participants: number }>> {
   if (!isConnected || !sock) {
     throw new Error('WhatsApp is not connected');
@@ -167,7 +216,8 @@ export async function listGroups(): Promise<Array<{ id: string; subject: string;
   }));
 }
 
-function phoneNumberFromJid(jid: string): string | null {
+function phoneNumberFromJid(jid: string | undefined): string | null {
+  if (!jid) return null;
   const user = jid.split('@')[0];
   return /^\d+$/.test(user) ? user : null;
 }
@@ -176,12 +226,62 @@ function trackedGroupUserRole(admin: GroupParticipantLike['admin']): TrackedGrou
   return admin === 'admin' || admin === 'superadmin' ? admin : 'member';
 }
 
+function cleanDisplayName(value: string | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function displayNameFromParticipant(participant: GroupParticipantLike): string | null {
+  return (
+    cleanDisplayName(participant.name) ??
+    cleanDisplayName(participant.notify) ??
+    cleanDisplayName(participant.verifiedName) ??
+    cleanDisplayName(participant.pushname) ??
+    null
+  );
+}
+
+function isJidLike(value: string): boolean {
+  return value.includes('@');
+}
+
+function normalizeDigits(value: string): string {
+  return value.replace(/\D/g, '');
+}
+
+function isUsefulDisplayName(value: string, participant: TrackedGroupUser): boolean {
+  if (!value) return false;
+  if (isJidLike(value)) return false;
+  const normalizedNameDigits = normalizeDigits(value);
+  if (participant.phoneNumber && normalizedNameDigits && normalizedNameDigits === normalizeDigits(participant.phoneNumber)) {
+    return false;
+  }
+  return true;
+}
+
+function displayNameFromContact(contact: {
+  name?: string;
+  notify?: string;
+  verifiedName?: string;
+  pushname?: string;
+} | undefined): string | null {
+  if (!contact) return null;
+  return (
+    cleanDisplayName(contact.name) ??
+    cleanDisplayName(contact.notify) ??
+    cleanDisplayName(contact.verifiedName) ??
+    cleanDisplayName(contact.pushname) ??
+    null
+  );
+}
+
 export function trackedGroupUsersFromMetadata(metadata: GroupMetadataLike): TrackedGroupUsers {
   const participants = metadata.participants
     .map((participant) => {
       return {
         id: participant.id,
-        phoneNumber: phoneNumberFromJid(participant.id),
+        phoneNumber: phoneNumberFromJid(participant.phoneNumber) ?? phoneNumberFromJid(participant.id),
+        displayName: displayNameFromParticipant(participant),
         role: trackedGroupUserRole(participant.admin),
       };
     })
@@ -215,7 +315,56 @@ export async function listTrackedGroupUsers(options: {
   }
 
   const metadata = await activeSocket.groupMetadata(watchGroupId);
-  return trackedGroupUsersFromMetadata(metadata);
+  const trackedGroup = trackedGroupUsersFromMetadata(metadata);
+  const lookupSocket = activeSocket as NameLookupSocket;
+
+  const participants = await Promise.all(trackedGroup.participants.map(async (participant) => {
+    if (participant.displayName) return participant;
+    const fromGetName = lookupSocket.getName
+      ? cleanDisplayName(await lookupSocket.getName(participant.id))
+      : null;
+    if (fromGetName && isUsefulDisplayName(fromGetName, participant)) {
+      return { ...participant, displayName: fromGetName };
+    }
+
+    const contacts = lookupSocket.contacts;
+    const fromContactById = displayNameFromContact(contacts?.[participant.id]);
+    if (fromContactById && isUsefulDisplayName(fromContactById, participant)) {
+      return { ...participant, displayName: fromContactById };
+    }
+
+    const phoneJid = participant.phoneNumber ? `${participant.phoneNumber}@s.whatsapp.net` : null;
+    const fromContactByPhone = phoneJid ? displayNameFromContact(contacts?.[phoneJid]) : null;
+    if (fromContactByPhone && isUsefulDisplayName(fromContactByPhone, participant)) {
+      return { ...participant, displayName: fromContactByPhone };
+    }
+
+    return participant;
+  }));
+
+  return { ...trackedGroup, participants };
+}
+
+export async function removeTrackedGroupUser(participantId: string, options: {
+  socket?: GroupParticipantsUpdateSocket;
+  isConnected?: boolean;
+  watchGroupId?: string;
+} = {}): Promise<void> {
+  const watchGroupId = options.watchGroupId ?? process.env.WATCH_GROUP_ID;
+  if (!watchGroupId) {
+    throw new Error('WATCH_GROUP_ID is not configured');
+  }
+  if (!participantId.trim()) {
+    throw new Error('participantId is required');
+  }
+
+  const activeSocket = options.socket ?? sock;
+  const connected = options.isConnected ?? isConnected;
+  if (!connected || !activeSocket) {
+    throw new Error('WhatsApp is not connected');
+  }
+
+  await activeSocket.groupParticipantsUpdate(watchGroupId, [participantId], 'remove');
 }
 
 function extractMessageText(msg: proto.IWebMessageInfo): string {

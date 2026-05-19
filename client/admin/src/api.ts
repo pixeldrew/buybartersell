@@ -1,4 +1,4 @@
-import type { AdminSettings, AdminStats, TrackedGroupUsers } from './types';
+import type { ActivityPoll, AdminSettings, AdminStats, TrackedGroupUsers } from './types';
 
 export class ApiError extends Error {
   constructor(
@@ -38,6 +38,30 @@ export function getSettings(): Promise<AdminSettings> {
 
 export function getTrackedGroupUsers(): Promise<{ trackedGroup: TrackedGroupUsers }> {
   return requestJson<{ trackedGroup: TrackedGroupUsers }>('/api/admin/tracked-group/users');
+}
+
+export function getLatestActivityPoll(): Promise<{ activityPoll: ActivityPoll | null }> {
+  return requestJson<{ activityPoll: ActivityPoll | null }>('/api/admin/activity-polls/latest');
+}
+
+export function createActivityPoll(question: string): Promise<{ activityPoll: ActivityPoll }> {
+  return requestJson<{ activityPoll: ActivityPoll }>('/api/admin/activity-polls', {
+    method: 'POST',
+    body: JSON.stringify({ question }),
+  });
+}
+
+export function closeActivityPoll(id: string): Promise<{ activityPoll: ActivityPoll }> {
+  return requestJson<{ activityPoll: ActivityPoll }>(`/api/admin/activity-polls/${id}/close`, {
+    method: 'POST',
+  });
+}
+
+export function removeTrackedGroupUser(participantId: string): Promise<{ ok: true }> {
+  return requestJson<{ ok: true }>('/api/admin/tracked-group/users/remove', {
+    method: 'POST',
+    body: JSON.stringify({ participantId }),
+  });
 }
 
 export function setTermsGate(enabled: boolean): Promise<Pick<AdminSettings, 'termsGateEnabled'>> {

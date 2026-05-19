@@ -6,6 +6,7 @@ import joinRouter, {
   getJoinTokenStatus,
   rejectJoinToken,
 } from './join-routes.ts';
+import listingsRouter from './listings-routes.ts';
 
 const apiRouter = Router();
 
@@ -15,6 +16,7 @@ apiRouter.get('/status', (_req: Request, res: Response) => {
 
 apiRouter.use('/admin', adminRouter);
 apiRouter.use('/join', joinRouter);
+apiRouter.use('/listings', listingsRouter);
 
 export { acceptJoinToken, getJoinTokenStatus, rejectJoinToken };
 

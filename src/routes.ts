@@ -9,8 +9,17 @@ const ADMIN_DIST_DIR = path.resolve(process.cwd(), 'client/admin/dist');
 const ADMIN_INDEX = path.join(ADMIN_DIST_DIR, 'index.html');
 const JOIN_DIST_DIR = path.resolve(process.cwd(), 'client/join/dist');
 const JOIN_INDEX = path.join(JOIN_DIST_DIR, 'index.html');
+const LISTINGS_DIST_DIR = path.resolve(process.cwd(), 'client/listings/dist');
+const LISTINGS_INDEX = path.join(LISTINGS_DIST_DIR, 'index.html');
+const MEDIA_DIR = path.resolve(process.env.MEDIA_DIR ?? './media');
 
 router.use('/api', apiRouter);
+router.use('/media', expressStaticGzip(MEDIA_DIR, {
+  enableBrotli: true,
+  index: false,
+  orderPreference: ['br'],
+  serveStatic: { index: false },
+}));
 
 router.use('/admin', createRequireAdminPage(getConfiguredAdminEmails()));
 router.use(
@@ -37,6 +46,19 @@ router.use(
 );
 router.get('/join/:token', (_req: Request, res: Response) => {
   res.sendFile(JOIN_INDEX);
+});
+
+router.use(
+  '/listings',
+  expressStaticGzip(LISTINGS_DIST_DIR, {
+    enableBrotli: true,
+    index: false,
+    orderPreference: ['br'],
+    serveStatic: { index: false },
+  }),
+);
+router.get(['/listings', '/listings/'], (_req: Request, res: Response) => {
+  res.sendFile(LISTINGS_INDEX);
 });
 
 export default router;

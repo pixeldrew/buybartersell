@@ -1,4 +1,5 @@
 #!/usr/bin/env ts-node
+import '../src/env.ts';
 import { connectDB } from '../src/db.ts';
 import { runBatchAnalysis } from '../src/analyzer.ts';
 
