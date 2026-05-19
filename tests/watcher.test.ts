@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { proto } from '@whiskeysockets/baileys';
-import { createPhoneBook, resolveSenderPhoneNumber } from '../src/watcher.ts';
+import { createPhoneBook, resolveSenderDisplayName, resolveSenderPhoneNumber } from '../src/watcher.ts';
 import { collateMessagesForSave, mediaPathForStorage } from '../src/watcher.ts';
 
 test('resolves phone numbers from PN-style sender JIDs without metadata', () => {
@@ -18,6 +18,18 @@ test('resolves phone numbers from cached LID mappings populated by phonebook eve
   });
 
   assert.equal(resolveSenderPhoneNumber('abc123@lid', phoneBook), '15557654321');
+});
+
+test('resolves display names from cached participant metadata', () => {
+  const phoneBook = createPhoneBook();
+  phoneBook.indexParticipant({
+    id: 'abc123@lid',
+    phoneNumber: '15557654321@s.whatsapp.net',
+    notify: 'Kite Seller',
+  });
+
+  assert.equal(resolveSenderDisplayName('abc123@lid', phoneBook), 'Kite Seller');
+  assert.equal(resolveSenderDisplayName('15557654321@s.whatsapp.net', phoneBook), 'Kite Seller');
 });
 
 test('stores media paths relative to the current working directory', () => {
