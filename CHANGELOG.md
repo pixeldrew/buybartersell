@@ -1,3 +1,20 @@
+# [1.3.0](https://github.com/pixeldrew/buybartersell/compare/v1.2.0...v1.3.0) (2026-05-19)
+
+
+### Bug Fixes
+
+* **admin:** send activity polls with two response options ([6ff472a](https://github.com/pixeldrew/buybartersell/commit/6ff472a27ed06d52ae678931ca1aee24a9e536e2))
+
+
+### Features
+
+* **admin:** add activity poll tracking ([a618790](https://github.com/pixeldrew/buybartersell/commit/a618790b8179530664f5dd1f2dfcb60939fa57d9))
+* **admin:** allow removing tracked group members from dashboard ([2781278](https://github.com/pixeldrew/buybartersell/commit/2781278a4d24e1c8833d76d10cd8fa3619282bd6))
+* **admin:** show member names and formatted phone numbers ([dd6f5a8](https://github.com/pixeldrew/buybartersell/commit/dd6f5a8b0a1d923132f477699f00d66cee8a9332))
+* **analyzer:** collate rapid seller messages into listing threads ([556125d](https://github.com/pixeldrew/buybartersell/commit/556125d3227882491849827e74d88e2d3a891f97))
+* **listings:** add a public listing feed for recent thread analysis ([33484ea](https://github.com/pixeldrew/buybartersell/commit/33484ead6e23ea5b320d860b1522f11dceb89835))
+* **listings:** add a public listing feed for recent thread analysis ([dfa705b](https://github.com/pixeldrew/buybartersell/commit/dfa705b782efd7502cec9a9d6a4324681ff95243))
+
 # [1.2.0](https://github.com/pixeldrew/buybartersell/compare/v1.1.0...v1.2.0) (2026-05-17)
 
 
