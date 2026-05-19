@@ -57,6 +57,10 @@ type PhoneBookContact = {
   id: string;
   phoneNumber?: string;
   lid?: string;
+  name?: string;
+  notify?: string;
+  verifiedName?: string;
+  pushname?: string;
 };
 type CollationGroup = CollatedMessageEntry & {
   order: number;
@@ -117,6 +121,7 @@ async function downloadMedia(
 
 export type PhoneBook = {
   get: (jid: string) => string | undefined;
+  getDisplayName: (jid: string) => string | undefined;
   indexContact: (contact: PhoneBookContact) => void;
   indexParticipant: (participant: PhoneBookContact) => void;
 };
@@ -130,18 +135,44 @@ function barePhoneFromJid(jid: string | undefined): string | undefined {
 
 export function createPhoneBook(): PhoneBook {
   const entries = new Map<string, string>();
+  const displayNames = new Map<string, string>();
+
+  function cleanDisplayName(value: string | undefined): string | null {
+    const trimmed = value?.trim();
+    return trimmed ? trimmed : null;
+  }
+
+  function displayNameFromContact(contact: PhoneBookContact): string | null {
+    return (
+      cleanDisplayName(contact.name) ??
+      cleanDisplayName(contact.notify) ??
+      cleanDisplayName(contact.verifiedName) ??
+      cleanDisplayName(contact.pushname) ??
+      null
+    );
+  }
 
   function indexContact(contact: PhoneBookContact): void {
     const phone = barePhoneFromJid(contact.phoneNumber) ?? barePhoneFromJid(contact.id);
-    if (!phone) return;
+    const displayName = displayNameFromContact(contact);
 
-    entries.set(contact.id, phone);
-    if (contact.phoneNumber) entries.set(contact.phoneNumber, phone);
-    if (contact.lid) entries.set(contact.lid, phone);
+    if (phone) {
+      entries.set(contact.id, phone);
+      if (contact.phoneNumber) entries.set(contact.phoneNumber, phone);
+      if (contact.lid) entries.set(contact.lid, phone);
+    }
+
+    if (displayName) {
+      displayNames.set(contact.id, displayName);
+      if (contact.phoneNumber) displayNames.set(contact.phoneNumber, displayName);
+      if (contact.lid) displayNames.set(contact.lid, displayName);
+      if (phone) displayNames.set(`${phone}@s.whatsapp.net`, displayName);
+    }
   }
 
   return {
     get: (jid) => entries.get(jid),
+    getDisplayName: (jid) => displayNames.get(jid),
     indexContact,
     indexParticipant: indexContact,
   };
@@ -151,11 +182,25 @@ export function resolveSenderPhoneNumber(sender: string, phoneBook: Pick<PhoneBo
   return barePhoneFromJid(sender) ?? phoneBook.get(sender) ?? null;
 }
 
+export function resolveSenderDisplayName(
+  sender: string,
+  phoneBook: Pick<PhoneBook, 'get' | 'getDisplayName'>,
+): string | null {
+  const directName = phoneBook.getDisplayName(sender);
+  if (directName) return directName;
+
+  const phoneNumber = resolveSenderPhoneNumber(sender, phoneBook);
+  if (!phoneNumber) return null;
+
+  return phoneBook.getDisplayName(`${phoneNumber}@s.whatsapp.net`) ?? null;
+}
+
 export interface CollatedMessageEntry {
   messageId: string;
   groupId: string;
   sender: string;
   phoneNumber: string | null;
+  displayName: string | null;
   text: string;
   timestamp: Date;
   links: string[];
@@ -206,7 +251,7 @@ function collationKeyForMessage(
 export function collateMessagesForSave(
   messages: proto.IWebMessageInfo[],
   groupJid: string,
-  phoneBook: Pick<PhoneBook, 'get'>,
+  phoneBook: Pick<PhoneBook, 'get' | 'getDisplayName'>,
 ): CollatedMessageEntry[] {
   const groups = new Map<string, CollationGroup>();
 
@@ -222,6 +267,7 @@ export function collateMessagesForSave(
         groupId: groupJid,
         sender,
         phoneNumber: resolveSenderPhoneNumber(sender, phoneBook),
+        displayName: resolveSenderDisplayName(sender, phoneBook),
         text: '',
         timestamp: timestampFromMessage(msg),
         links: [],
@@ -250,6 +296,7 @@ export function collateMessagesForSave(
         groupId: group.groupId,
         sender: group.sender,
         phoneNumber: group.phoneNumber,
+        displayName: group.displayName,
         text: sourceMessages.map(msg => extractText(msg).trim()).filter(Boolean).join('\n\n'),
         timestamp: group.timestamp,
         links: uniqueLinks,
@@ -353,10 +400,12 @@ export function startWatcher(sock: WASocket): void {
           groupId: groupJid,
           sender: entry.sender,
           phoneNumber: entry.phoneNumber,
+          displayName: entry.displayName,
           messageId: entry.messageId,
           text: entry.text,
           timestamp: entry.timestamp,
           mediaCount: mediaFiles.length,
+          mediaFiles,
           links: entry.links,
         });
         console.log(`[watcher] saved ${entry.messageId}${mediaFiles.length ? ` (+${mediaFiles.length} media)` : ''}${entry.links.length ? ` (${entry.links.length} links)` : ''}`);
