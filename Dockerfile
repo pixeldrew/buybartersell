@@ -32,6 +32,7 @@ COPY --from=builder /build/nm_prod/node_modules ./node_modules
 COPY --from=builder /build/package.json ./
 COPY --from=builder /build/client/admin/dist ./client/admin/dist
 COPY --from=builder /build/client/join/dist ./client/join/dist
+COPY --from=builder /build/client/listings/dist ./client/listings/dist
 
 EXPOSE 3000
 
