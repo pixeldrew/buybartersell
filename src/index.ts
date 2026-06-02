@@ -8,6 +8,9 @@ import { createOidcMiddleware } from './auth.ts';
 const PORT = process.env.PORT ?? 3000;
 
 const app = express();
+if (process.env.TRUST_PROXY === 'true') {
+  app.set('trust proxy', true);
+}
 app.use(express.json());
 app.use(createOidcMiddleware());
 app.use('/', router);

@@ -16,13 +16,17 @@ TypeScript/Express app with a single-instance WhatsApp socket managed as module-
 
 **`src/whatsapp.ts`** — Baileys connection layer. Owns the `WASocket` singleton and `isConnected` flag. On first run (no saved MongoDB credentials), interactively prompts for a phone number and prints a pairing code. On subsequent runs it reconnects automatically using saved credentials. Auto-reconnects on disconnection unless the reason is `loggedOut`. Starts the watcher and join approval handlers after the connection opens.
 
-**`src/routes.ts`** — Top-level Express router. Mounts JSON API routes under `/api`, serves the protected admin app at `/admin/dashboard`, and serves the public join app at `/join/:token`.
+**`src/routes.ts`** — Top-level Express router. Mounts JSON API routes under `/api`, serves the protected admin app at `/admin/dashboard`, and serves the public join app at `/join` and `/join/:token`.
 
 **`src/api-routes.ts`** — Public API router. Endpoints: `GET /status`, `/admin/*`, and `/join/*`.
 
 **`src/admin-routes.ts`** — OIDC-protected admin API routes: groups, tracked group users, activity polls, stats, and settings.
 
-**`src/join-routes.ts`** — Public terms approval API routes for join tokens.
+**`src/join-routes.ts`** — Public terms approval API routes for join tokens and the Turnstile-protected direct web join form.
+
+**`src/direct-join.ts`** — Validates direct web join submissions, throttles them by client IP, verifies Cloudflare Turnstile, records audit status, and adds accepted US phone numbers to the tracked group.
+
+**`src/direct-join-store.ts`** — MongoDB audit records for direct web joins with 90-day TTL expiry.
 
 **`src/index.ts`** — Bootstraps Express, calls `connectDB()` and `connectToWhatsApp()` concurrently with the HTTP server starting.
 
@@ -50,6 +54,9 @@ TypeScript/Express app with a single-instance WhatsApp socket managed as module-
 | `MONGODB_URI` | `mongodb://localhost:27017/whatsapp-stats` | MongoDB connection string |
 | `WATCH_GROUP_ID` | unset | Group JID to watch, e.g. `123456789@g.us` |
 | `APP_URL` | `http://localhost:3000` | Fallback public app URL for generated join links |
+| `TURNSTILE_SITE_KEY` | unset | Cloudflare Turnstile public key for direct web joins |
+| `TURNSTILE_SECRET_KEY` | unset | Cloudflare Turnstile server verification secret |
+| `TRUST_PROXY` | unset | Set to `true` behind a trusted proxy for client-IP throttling |
 | `MEDIA_DIR` | `./media` | Directory for downloaded WhatsApp media |
 | `MEDIA_ALBUM_COLLATE_MS` | `1500` | Delay used to collate multi-media album messages |
 | `LMSTUDIO_URL` | `http://localhost:1234` | OpenAI-compatible chat completions base URL |

@@ -2,7 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { type WASocket } from '@whiskeysockets/baileys';
 import { createJoinRequestHandler, startJoinApproval } from '../src/join-approval.ts';
-import { acceptJoinToken, getJoinTokenStatus, rejectJoinToken } from '../src/join-routes.ts';
+import {
+  acceptJoinToken,
+  getDirectJoinConfig,
+  getJoinTokenStatus,
+  parseDirectJoinBody,
+  rejectJoinToken,
+  submitDirectJoin,
+} from '../src/join-routes.ts';
 import { stubJoinRequestStore } from './join-request-store-stub.ts';
 
 async function createToken(): Promise<string> {
@@ -85,4 +92,59 @@ test('join accept and reject endpoints return json outcomes', async () => {
     updates.map((entry) => entry.action),
     ['approve', 'reject'],
   );
+});
+
+test('direct join config fails closed unless enabled and configured', async () => {
+  assert.deepEqual(await getDirectJoinConfig({
+    getDirectWebJoinEnabled: async () => false,
+    getTurnstileSiteKey: () => 'site-key',
+    getTurnstileSecretKey: () => 'secret',
+  }), {
+    status: 200,
+    body: { ok: true, available: false },
+  });
+  assert.deepEqual(await getDirectJoinConfig({
+    getDirectWebJoinEnabled: async () => true,
+    getTurnstileSiteKey: () => 'site-key',
+    getTurnstileSecretKey: () => 'secret',
+  }), {
+    status: 200,
+    body: { ok: true, available: true, turnstileSiteKey: 'site-key' },
+  });
+});
+
+test('parses direct join submissions', () => {
+  assert.deepEqual(parseDirectJoinBody({
+    phoneNumber: '(555) 123-4567',
+    acceptedTerms: true,
+    turnstileToken: 'captcha-token',
+  }), {
+    phoneNumber: '(555) 123-4567',
+    acceptedTerms: true,
+    turnstileToken: 'captcha-token',
+  });
+  assert.throws(() => parseDirectJoinBody({}), /phoneNumber is required/);
+});
+
+test('direct join submission applies throttling before service execution', async () => {
+  let submissions = 0;
+  const deps = {
+    rateLimiter: { consume: () => false },
+    service: {
+      submit: async () => {
+        submissions += 1;
+        return { outcome: 'added' as const };
+      },
+    },
+  };
+
+  assert.deepEqual(await submitDirectJoin({
+    phoneNumber: '5551234567',
+    acceptedTerms: true,
+    turnstileToken: 'captcha-token',
+  }, '203.0.113.10', deps), {
+    status: 429,
+    body: { ok: false, error: 'Too many requests. Try again later.' },
+  });
+  assert.equal(submissions, 0);
 });

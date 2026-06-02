@@ -14,7 +14,20 @@ export interface AdminStats {
 
 export interface AdminSettings {
   termsGateEnabled: boolean;
+  directWebJoinEnabled: boolean;
+  turnstileConfigured: boolean;
   appUrl: string;
+}
+
+export interface DirectJoinRequest {
+  id: string;
+  userJid: string;
+  termsAcceptedAt: string;
+  termsVersion: string;
+  status: 'pending' | 'added' | 'failed';
+  whatsappStatus?: string;
+  failureReason?: string;
+  createdAt: string;
 }
 
 export type TrackedGroupUserRole = 'member' | 'admin' | 'superadmin';
