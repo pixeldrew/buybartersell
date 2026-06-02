@@ -8,13 +8,18 @@ import {
 } from '../src/direct-join.ts';
 
 test('normalizes US phone numbers to WhatsApp JIDs', () => {
-  assert.equal(normalizeUsPhoneNumber('(555) 123-4567'), '15551234567@s.whatsapp.net');
-  assert.equal(normalizeUsPhoneNumber('+1 555 123 4567'), '15551234567@s.whatsapp.net');
+  assert.equal(normalizeUsPhoneNumber('(305) 123-4567'), '13051234567@s.whatsapp.net');
+  assert.equal(normalizeUsPhoneNumber('+1 786 123 4567'), '17861234567@s.whatsapp.net');
 });
 
 test('rejects phone numbers outside the US normalization policy', () => {
   assert.throws(() => normalizeUsPhoneNumber('555-1234'), /valid US phone number/);
   assert.throws(() => normalizeUsPhoneNumber('+44 20 7946 0958'), /valid US phone number/);
+});
+
+test('rejects US phone numbers outside Florida area codes', () => {
+  assert.throws(() => normalizeUsPhoneNumber('(212) 123-4567'), /Florida phone number/);
+  assert.throws(() => normalizeUsPhoneNumber('+1 555 123 4567'), /Florida phone number/);
 });
 
 test('rate limiter allows five attempts per IP in a rolling window', () => {
@@ -60,7 +65,7 @@ test('direct join service records a successful WhatsApp add', async () => {
   });
 
   const result = await service.submit({
-    phoneNumber: '(555) 123-4567',
+    phoneNumber: '(305) 123-4567',
     acceptedTerms: true,
     turnstileToken: 'captcha-token',
     ipAddress: '203.0.113.10',
@@ -68,8 +73,8 @@ test('direct join service records a successful WhatsApp add', async () => {
 
   assert.deepEqual(result, { outcome: 'added' });
   assert.deepEqual(calls, [
-    'create:15551234567@s.whatsapp.net',
-    'add:15551234567@s.whatsapp.net',
+    'create:13051234567@s.whatsapp.net',
+    'add:13051234567@s.whatsapp.net',
     'added:audit-1:200',
   ]);
 });
@@ -90,7 +95,7 @@ test('direct join service records WhatsApp add failures', async () => {
 
   await assert.rejects(
     () => service.submit({
-      phoneNumber: '5551234567',
+      phoneNumber: '3051234567',
       acceptedTerms: true,
       turnstileToken: 'captcha-token',
       ipAddress: '203.0.113.10',
@@ -103,4 +108,3 @@ test('direct join service records WhatsApp add failures', async () => {
     reason: 'WhatsApp rejected the add request.',
   }]);
 });
-

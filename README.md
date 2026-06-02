@@ -185,7 +185,7 @@ When disabled, the bot ignores join requests so WhatsApp or human admins can
 handle them.
 
 The dashboard also has a separate direct web join switch. When it is enabled and
-both Turnstile keys are configured, `/join` accepts a US WhatsApp phone number,
+both Turnstile keys are configured, `/join` accepts a Florida WhatsApp phone number,
 terms approval, and a Cloudflare Turnstile token before the admin account attempts
 to add the number to `WATCH_GROUP_ID`. This low-friction flow does not verify that
 the visitor owns the submitted phone number. The server limits submissions to five

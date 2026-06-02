@@ -24,7 +24,7 @@ TypeScript/Express app with a single-instance WhatsApp socket managed as module-
 
 **`src/join-routes.ts`** — Public terms approval API routes for join tokens and the Turnstile-protected direct web join form.
 
-**`src/direct-join.ts`** — Validates direct web join submissions, throttles them by client IP, verifies Cloudflare Turnstile, records audit status, and adds accepted US phone numbers to the tracked group.
+**`src/direct-join.ts`** — Validates direct web join submissions, throttles them by client IP, verifies Cloudflare Turnstile, records audit status, and adds accepted Florida phone numbers to the tracked group.
 
 **`src/direct-join-store.ts`** — MongoDB audit records for direct web joins with 90-day TTL expiry.
 

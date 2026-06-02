@@ -346,7 +346,7 @@ export function App() {
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div className="flex flex-col gap-1">
                   <Label htmlFor="direct-web-join">Direct Web Join</Label>
-                  <p className="text-sm text-muted-foreground">Allow `/join` visitors to accept the terms and immediately add a submitted US phone number.</p>
+                  <p className="text-sm text-muted-foreground">Allow `/join` visitors to accept the terms and immediately add a submitted Florida phone number.</p>
                 </div>
                 <Switch
                   id="direct-web-join"

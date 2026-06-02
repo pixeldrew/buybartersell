@@ -179,13 +179,19 @@ function DirectJoinApp() {
       <Card className="w-full max-w-xl">
         <CardHeader>
           <CardTitle>Request Group Access</CardTitle>
-          <CardDescription>Enter your WhatsApp phone number and accept the Terms & Conditions to join.</CardDescription>
+          <CardDescription>Enter your Florida WhatsApp phone number and accept the Terms & Conditions to join.</CardDescription>
         </CardHeader>
         <form onSubmit={(event) => void submit(event)}>
           <CardContent className="flex flex-col gap-4">
             <TermsContent />
+            <Alert>
+              <AlertTitle>Florida numbers only</AlertTitle>
+              <AlertDescription>
+                Public join requests are limited to WhatsApp phone numbers with Florida area codes.
+              </AlertDescription>
+            </Alert>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="phone-number">US WhatsApp phone number</Label>
+              <Label htmlFor="phone-number">Florida WhatsApp phone number</Label>
               <Input id="phone-number" type="tel" autoComplete="tel" placeholder="(555) 123-4567" value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} disabled={submitting} required />
             </div>
             <label className="flex items-start gap-2 text-sm">

@@ -9,6 +9,31 @@ import { addTrackedGroupUser } from './whatsapp.ts';
 const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 const TERMS_VERSION = 'v1';
 const AUDIT_RETENTION_MS = 90 * 24 * 60 * 60_000;
+const FLORIDA_AREA_CODES = new Set([
+  '239',
+  '305',
+  '321',
+  '324',
+  '352',
+  '386',
+  '407',
+  '448',
+  '561',
+  '645',
+  '656',
+  '689',
+  '727',
+  '728',
+  '754',
+  '772',
+  '786',
+  '813',
+  '850',
+  '863',
+  '904',
+  '941',
+  '954',
+]);
 
 export class DirectJoinPublicError extends Error {
   readonly status: number;
@@ -25,6 +50,9 @@ export function normalizeUsPhoneNumber(value: string): string {
   const nationalNumber = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits;
   if (nationalNumber.length !== 10) {
     throw new DirectJoinPublicError('Enter a valid US phone number.', 400);
+  }
+  if (!FLORIDA_AREA_CODES.has(nationalNumber.slice(0, 3))) {
+    throw new DirectJoinPublicError('Enter a valid Florida phone number.', 400);
   }
   return `1${nationalNumber}@s.whatsapp.net`;
 }
