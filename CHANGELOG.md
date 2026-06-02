@@ -1,3 +1,15 @@
+# [1.4.0](https://github.com/pixeldrew/buybartersell/compare/v1.3.0...v1.4.0) (2026-06-02)
+
+
+### Bug Fixes
+
+* **join:** limit public joins to Florida numbers ([5959829](https://github.com/pixeldrew/buybartersell/commit/5959829e6473884c8b1ce9e84569c241de79d92c))
+
+
+### Features
+
+* **join:** add direct web access requests ([856b588](https://github.com/pixeldrew/buybartersell/commit/856b588ebfe3c523c09d7a4ec2b7b29337e09cbd))
+
 # [1.3.0](https://github.com/pixeldrew/buybartersell/compare/v1.2.0...v1.3.0) (2026-05-19)
 
 
