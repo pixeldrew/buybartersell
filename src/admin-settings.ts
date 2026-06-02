@@ -1,6 +1,7 @@
 import mongoose, { Schema, type Document, type Model } from 'mongoose';
 
 const TERMS_GATE_ENABLED_KEY = 'termsGateEnabled';
+const DIRECT_WEB_JOIN_ENABLED_KEY = 'directWebJoinEnabled';
 const APP_URL_KEY = 'appUrl';
 const DEFAULT_APP_URL = 'http://localhost:3000';
 
@@ -31,6 +32,10 @@ export function parseTermsGateEnabledBody(body: unknown): boolean {
   }
 
   return (body as { enabled: boolean }).enabled;
+}
+
+export function parseDirectWebJoinEnabledBody(body: unknown): boolean {
+  return parseTermsGateEnabledBody(body);
 }
 
 export function normalizeAppUrl(value: string): string {
@@ -71,6 +76,11 @@ export async function getTermsGateEnabled(): Promise<boolean> {
   return setting?.value === true;
 }
 
+export async function getDirectWebJoinEnabled(): Promise<boolean> {
+  const setting = await AdminSetting.findOne({ key: DIRECT_WEB_JOIN_ENABLED_KEY }).lean();
+  return setting?.value === true;
+}
+
 export async function getAppUrl(): Promise<string> {
   const setting = await AdminSetting.findOne({ key: APP_URL_KEY }).lean();
   return resolveAppUrl(setting?.value, process.env.APP_URL);
@@ -79,6 +89,15 @@ export async function getAppUrl(): Promise<string> {
 export async function setTermsGateEnabled(enabled: boolean): Promise<boolean> {
   await AdminSetting.updateOne(
     { key: TERMS_GATE_ENABLED_KEY },
+    { $set: { value: enabled } },
+    { upsert: true },
+  );
+  return enabled;
+}
+
+export async function setDirectWebJoinEnabled(enabled: boolean): Promise<boolean> {
+  await AdminSetting.updateOne(
+    { key: DIRECT_WEB_JOIN_ENABLED_KEY },
     { $set: { value: enabled } },
     { upsert: true },
   );

@@ -109,7 +109,7 @@ export async function connectToWhatsApp(): Promise<void> {
     logger,
     cachedGroupMetadata: async (jid) => groupCache.get(jid),
     printQRInTerminal: false,
-    browser: Browsers.macOS("Safari"),
+    browser: process.env.NODE_ENV === 'development'? Browsers.windows("Edge") : Browsers.macOS('Safari'),
     markOnlineOnConnect: false,
   });
 
@@ -365,6 +365,32 @@ export async function removeTrackedGroupUser(participantId: string, options: {
   }
 
   await activeSocket.groupParticipantsUpdate(watchGroupId, [participantId], 'remove');
+}
+
+export async function addTrackedGroupUser(userJid: string, options: {
+  socket?: GroupParticipantsUpdateSocket;
+  isConnected?: boolean;
+  watchGroupId?: string;
+} = {}): Promise<{ status: string; jid: string | undefined }> {
+  const watchGroupId = options.watchGroupId ?? process.env.WATCH_GROUP_ID;
+  if (!watchGroupId) {
+    throw new Error('WATCH_GROUP_ID is not configured');
+  }
+  if (!userJid.trim()) {
+    throw new Error('userJid is required');
+  }
+
+  const activeSocket = options.socket ?? sock;
+  const connected = options.isConnected ?? isConnected;
+  if (!connected || !activeSocket) {
+    throw new Error('WhatsApp is not connected');
+  }
+
+  const [result] = await activeSocket.groupParticipantsUpdate(watchGroupId, [userJid], 'add');
+  if (!result) {
+    throw new Error('WhatsApp did not return an add result');
+  }
+  return { status: result.status, jid: result.jid };
 }
 
 function extractMessageText(msg: proto.IWebMessageInfo): string {

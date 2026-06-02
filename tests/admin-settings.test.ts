@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   parseAppUrlBody,
+  parseDirectWebJoinEnabledBody,
   parseTermsGateEnabledBody,
   resolveAppUrl,
 } from '../src/admin-settings.ts';
@@ -20,6 +21,11 @@ test('rejects invalid terms gate setting bodies', () => {
     () => parseTermsGateEnabledBody({}),
     /enabled must be a boolean/,
   );
+});
+
+test('parses direct web join setting bodies', () => {
+  assert.equal(parseDirectWebJoinEnabledBody({ enabled: true }), true);
+  assert.throws(() => parseDirectWebJoinEnabledBody({ enabled: 'true' }), /enabled must be a boolean/);
 });
 
 test('parses and normalizes valid APP_URL setting bodies', () => {

@@ -47,6 +47,9 @@ router.use(
 router.get('/join/:token', (_req: Request, res: Response) => {
   res.sendFile(JOIN_INDEX);
 });
+router.get(['/join', '/join/'], (_req: Request, res: Response) => {
+  res.sendFile(JOIN_INDEX);
+});
 
 router.use(
   '/listings',

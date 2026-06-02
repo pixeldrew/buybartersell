@@ -3,12 +3,16 @@ import { getMarketCounts, getSentimentCounts, getWeeklyPostCounts } from './db.t
 import { listGroups, listTrackedGroupUsers, removeTrackedGroupUser } from './whatsapp.ts';
 import {
   getAppUrl,
+  getDirectWebJoinEnabled,
   getTermsGateEnabled,
   parseAppUrlBody,
+  parseDirectWebJoinEnabledBody,
   parseTermsGateEnabledBody,
   setAppUrl,
+  setDirectWebJoinEnabled,
   setTermsGateEnabled,
 } from './admin-settings.ts';
+import { listRecentDirectJoinAudits } from './direct-join-store.ts';
 import {
   ActivityPollOpenError,
   closeActivityPoll,
@@ -138,11 +142,26 @@ adminRouter.get('/stats', async (_req: Request, res: Response) => {
 
 adminRouter.get('/settings', async (_req: Request, res: Response) => {
   try {
-    const [termsGateEnabled, appUrl] = await Promise.all([
+    const [termsGateEnabled, directWebJoinEnabled, appUrl] = await Promise.all([
       getTermsGateEnabled(),
+      getDirectWebJoinEnabled(),
       getAppUrl(),
     ]);
-    res.json({ termsGateEnabled, appUrl });
+    res.json({
+      termsGateEnabled,
+      directWebJoinEnabled,
+      turnstileConfigured: Boolean(process.env.TURNSTILE_SITE_KEY && process.env.TURNSTILE_SECRET_KEY),
+      appUrl,
+    });
+  } catch (err) {
+    res.status(503).json({ error: (err as Error).message });
+  }
+});
+
+adminRouter.get('/direct-join-requests', async (_req: Request, res: Response) => {
+  try {
+    const directJoinRequests = await listRecentDirectJoinAudits();
+    res.json({ directJoinRequests });
   } catch (err) {
     res.status(503).json({ error: (err as Error).message });
   }
@@ -177,6 +196,23 @@ adminRouter.post('/settings/terms-gate', async (req: Request, res: Response) => 
   try {
     const termsGateEnabled = await setTermsGateEnabled(enabled);
     res.json({ termsGateEnabled });
+  } catch (err) {
+    res.status(503).json({ error: (err as Error).message });
+  }
+});
+
+adminRouter.post('/settings/direct-web-join', async (req: Request, res: Response) => {
+  let enabled: boolean;
+  try {
+    enabled = parseDirectWebJoinEnabledBody(req.body);
+  } catch (err) {
+    res.status(400).json({ error: (err as Error).message });
+    return;
+  }
+
+  try {
+    const directWebJoinEnabled = await setDirectWebJoinEnabled(enabled);
+    res.json({ directWebJoinEnabled });
   } catch (err) {
     res.status(503).json({ error: (err as Error).message });
   }

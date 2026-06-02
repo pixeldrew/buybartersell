@@ -65,6 +65,9 @@ component utilities are included in built CSS.
 | `MONGODB_URI` | `mongodb://localhost:27017/whatsapp-stats` | MongoDB connection string |
 | `WATCH_GROUP_ID` | unset | Group JID to watch, e.g. `123456789@g.us` |
 | `APP_URL` | `http://localhost:3000` | Fallback public app URL for generated join links |
+| `TURNSTILE_SITE_KEY` | unset | Cloudflare Turnstile public site key for direct web joins |
+| `TURNSTILE_SECRET_KEY` | unset | Cloudflare Turnstile server validation secret for direct web joins |
+| `TRUST_PROXY` | unset | Set to `true` behind a trusted reverse proxy so throttling uses the forwarded client IP |
 | `MEDIA_DIR` | `./media` | Directory for downloaded WhatsApp media |
 | `MEDIA_ALBUM_COLLATE_MS` | `1500` | Delay used to collate multi-media album messages |
 | `LMSTUDIO_URL` | `http://localhost:1234` | OpenAI-compatible chat completions base URL |
@@ -103,6 +106,8 @@ All JSON API routes are mounted under `/api`.
 - `GET /api/join/:token/status` - Validate a terms approval token
 - `POST /api/join/:token/accept` - Accept terms and approve the join request
 - `POST /api/join/:token/reject` - Decline terms and reject the join request
+- `GET /api/join/direct/config` - Check whether the direct web join form is available
+- `POST /api/join/direct` - Accept terms and request an immediate direct group add
 
 ### Protected Admin API
 
@@ -125,11 +130,14 @@ Admin API routes:
 - `GET /api/admin/settings`
 - `POST /api/admin/settings/app-url`
 - `POST /api/admin/settings/terms-gate`
+- `POST /api/admin/settings/direct-web-join`
+- `GET /api/admin/direct-join-requests` - latest direct web join audit records
 
 ### Pages
 
 - `GET /admin/dashboard` - protected admin dashboard
 - `GET /join/:token` - public terms approval app
+- `GET /join` - public direct web join form
 - `/login`, `/callback`, `/logout` - provided by `express-openid-connect`
 
 If OIDC is not configured, admin routes fail closed.
@@ -175,6 +183,14 @@ When enabled, join requests for `WATCH_GROUP_ID` receive a `/join/:token` link.
 Accepting the terms approves the WhatsApp join request; declining rejects it.
 When disabled, the bot ignores join requests so WhatsApp or human admins can
 handle them.
+
+The dashboard also has a separate direct web join switch. When it is enabled and
+both Turnstile keys are configured, `/join` accepts a Florida WhatsApp phone number,
+terms approval, and a Cloudflare Turnstile token before the admin account attempts
+to add the number to `WATCH_GROUP_ID`. This low-friction flow does not verify that
+the visitor owns the submitted phone number. The server limits submissions to five
+attempts per client IP per 15 minutes and retains direct-join audit records for 90
+days.
 
 ## Verification
 

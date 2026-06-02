@@ -15,15 +15,17 @@ import {
   closeActivityPoll,
   createActivityPoll,
   getLatestActivityPoll,
+  getDirectJoinRequests,
   getSettings,
   getStats,
   getTrackedGroupUsers,
   isAuthenticationRequiredError,
   removeTrackedGroupUser,
   setAppUrl,
+  setDirectWebJoin,
   setTermsGate,
 } from './api';
-import type { ActivityPoll, AdminSettings, AdminStats, TrackedGroupUserRole, TrackedGroupUsers } from './types';
+import type { ActivityPoll, AdminSettings, AdminStats, DirectJoinRequest, TrackedGroupUserRole, TrackedGroupUsers } from './types';
 import { Alert, AlertDescription, AlertTitle } from '@buybartersell/ui/components/ui/alert';
 import { Badge } from '@buybartersell/ui/components/ui/badge';
 import { Button } from '@buybartersell/ui/components/ui/button';
@@ -97,11 +99,13 @@ export function App() {
   const [settings, setSettings] = useState<AdminSettings | null>(null);
   const [trackedGroupUsers, setTrackedGroupUsers] = useState<TrackedGroupUsers | null>(null);
   const [activityPoll, setActivityPoll] = useState<ActivityPoll | null>(null);
+  const [directJoinRequests, setDirectJoinRequests] = useState<DirectJoinRequest[]>([]);
   const [activityPollQuestion, setActivityPollQuestion] = useState(DEFAULT_ACTIVITY_POLL_QUESTION);
   const [appUrlInput, setAppUrlInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [termsPending, setTermsPending] = useState(false);
+  const [directWebJoinPending, setDirectWebJoinPending] = useState(false);
   const [appUrlPending, setAppUrlPending] = useState(false);
   const [activityPollPending, setActivityPollPending] = useState(false);
   const [activityPollClosePending, setActivityPollClosePending] = useState(false);
@@ -109,12 +113,14 @@ export function App() {
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [trackedGroupUsersError, setTrackedGroupUsersError] = useState<string | null>(null);
   const [activityPollError, setActivityPollError] = useState<string | null>(null);
+  const [directJoinRequestsError, setDirectJoinRequestsError] = useState<string | null>(null);
   const [authenticationRequired, setAuthenticationRequired] = useState(false);
 
   async function loadDashboard(options: { skipTrackedGroupUsers?: boolean } = {}) {
     setError(null);
     setTrackedGroupUsersError(null);
     setActivityPollError(null);
+    setDirectJoinRequestsError(null);
     setAuthenticationRequired(false);
     setRefreshing(true);
     try {
@@ -126,11 +132,15 @@ export function App() {
       const activityPollRequest = getLatestActivityPoll()
         .then((response) => ({ status: 'fulfilled' as const, value: response.activityPoll }))
         .catch((err) => ({ status: 'rejected' as const, reason: err }));
-      const [nextStats, nextSettings, nextTrackedGroupUsers, nextActivityPoll] = await Promise.all([
+      const directJoinRequestsRequest = getDirectJoinRequests()
+        .then((response) => ({ status: 'fulfilled' as const, value: response.directJoinRequests }))
+        .catch((err) => ({ status: 'rejected' as const, reason: err }));
+      const [nextStats, nextSettings, nextTrackedGroupUsers, nextActivityPoll, nextDirectJoinRequests] = await Promise.all([
         getStats(),
         getSettings(),
         trackedGroupUsersRequest,
         activityPollRequest,
+        directJoinRequestsRequest,
       ]);
       setStats(nextStats);
       setSettings(nextSettings);
@@ -152,6 +162,14 @@ export function App() {
       } else {
         setActivityPoll(null);
         setActivityPollError((nextActivityPoll.reason as Error).message);
+      }
+      if (nextDirectJoinRequests.status === 'fulfilled') {
+        setDirectJoinRequests(nextDirectJoinRequests.value);
+      } else if (isAuthenticationRequiredError(nextDirectJoinRequests.reason)) {
+        setAuthenticationRequired(true);
+      } else {
+        setDirectJoinRequests([]);
+        setDirectJoinRequestsError((nextDirectJoinRequests.reason as Error).message);
       }
     } catch (err) {
       if (isAuthenticationRequiredError(err)) {
@@ -203,6 +221,23 @@ export function App() {
       setSettingsError((err as Error).message);
     } finally {
       setAppUrlPending(false);
+    }
+  }
+
+  async function updateDirectWebJoin(enabled: boolean) {
+    if (!settings) return;
+    setSettingsError(null);
+    setDirectWebJoinPending(true);
+    const previous = settings.directWebJoinEnabled;
+    setSettings({ ...settings, directWebJoinEnabled: enabled });
+    try {
+      const response = await setDirectWebJoin(enabled);
+      setSettings({ ...settings, directWebJoinEnabled: response.directWebJoinEnabled });
+    } catch (err) {
+      setSettings({ ...settings, directWebJoinEnabled: previous });
+      setSettingsError((err as Error).message);
+    } finally {
+      setDirectWebJoinPending(false);
     }
   }
 
@@ -308,6 +343,33 @@ export function App() {
                 </div>
               </div>
 
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="direct-web-join">Direct Web Join</Label>
+                  <p className="text-sm text-muted-foreground">Allow `/join` visitors to accept the terms and immediately add a submitted Florida phone number.</p>
+                </div>
+                <Switch
+                  id="direct-web-join"
+                  checked={settings.directWebJoinEnabled}
+                  disabled={directWebJoinPending}
+                  onCheckedChange={(checked) => void updateDirectWebJoin(checked)}
+                />
+              </div>
+
+              <Alert>
+                <AlertCircleIcon data-icon="inline-start" />
+                <AlertTitle>Direct web join does not verify phone ownership</AlertTitle>
+                <AlertDescription>Only enable this public form when the low-friction access path is appropriate for your group.</AlertDescription>
+              </Alert>
+
+              {!settings.turnstileConfigured ? (
+                <Alert variant="destructive">
+                  <AlertCircleIcon data-icon="inline-start" />
+                  <AlertTitle>Turnstile is not configured</AlertTitle>
+                  <AlertDescription>Set `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` before enabling direct web joins.</AlertDescription>
+                </Alert>
+              ) : null}
+
               {settingsError ? (
                 <Alert variant="destructive">
                   <AlertCircleIcon data-icon="inline-start" />
@@ -345,6 +407,8 @@ export function App() {
               });
           }}
         />
+
+        <DirectJoinRequestsCard directJoinRequests={directJoinRequests} error={directJoinRequestsError} />
 
         <ActivityPollCard
           activityPoll={activityPoll}
@@ -419,6 +483,35 @@ export function App() {
         ) : null}
       </div>
     </main>
+  );
+}
+
+function DirectJoinRequestsCard({ directJoinRequests, error }: { directJoinRequests: DirectJoinRequest[]; error: string | null }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Direct Web Join History</CardTitle>
+        <CardDescription>Recent terms-accepted requests submitted through `/join`.</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        {error ? <Alert variant="destructive"><AlertCircleIcon data-icon="inline-start" /><AlertTitle>History unavailable</AlertTitle><AlertDescription>{error}</AlertDescription></Alert> : null}
+        {!error && directJoinRequests.length === 0 ? <p className="text-sm text-muted-foreground">No direct web join requests yet.</p> : null}
+        {directJoinRequests.length > 0 ? (
+          <div className="max-h-80 overflow-auto rounded-md border">
+            {directJoinRequests.map((request) => (
+              <div key={request.id} className="grid gap-1 border-b px-4 py-3 last:border-b-0 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center md:gap-3">
+                <div className="flex min-w-0 flex-col gap-1">
+                  <span className="truncate text-sm font-medium">{formatPhoneNumber(request.userJid.split('@')[0] ?? null)}</span>
+                  <span className="text-xs text-muted-foreground">{new Date(request.createdAt).toLocaleString()}</span>
+                </div>
+                <Badge variant={request.status === 'added' ? 'default' : request.status === 'failed' ? 'destructive' : 'secondary'}>{request.status}</Badge>
+                <span className="text-xs text-muted-foreground">{request.failureReason ?? request.whatsappStatus ?? ''}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 

@@ -1,4 +1,4 @@
-import type { ActivityPoll, AdminSettings, AdminStats, TrackedGroupUsers } from './types';
+import type { ActivityPoll, AdminSettings, AdminStats, DirectJoinRequest, TrackedGroupUsers } from './types';
 
 export class ApiError extends Error {
   constructor(
@@ -44,6 +44,10 @@ export function getLatestActivityPoll(): Promise<{ activityPoll: ActivityPoll | 
   return requestJson<{ activityPoll: ActivityPoll | null }>('/api/admin/activity-polls/latest');
 }
 
+export function getDirectJoinRequests(): Promise<{ directJoinRequests: DirectJoinRequest[] }> {
+  return requestJson<{ directJoinRequests: DirectJoinRequest[] }>('/api/admin/direct-join-requests');
+}
+
 export function createActivityPoll(question: string): Promise<{ activityPoll: ActivityPoll }> {
   return requestJson<{ activityPoll: ActivityPoll }>('/api/admin/activity-polls', {
     method: 'POST',
@@ -66,6 +70,13 @@ export function removeTrackedGroupUser(participantId: string): Promise<{ ok: tru
 
 export function setTermsGate(enabled: boolean): Promise<Pick<AdminSettings, 'termsGateEnabled'>> {
   return requestJson<Pick<AdminSettings, 'termsGateEnabled'>>('/api/admin/settings/terms-gate', {
+    method: 'POST',
+    body: JSON.stringify({ enabled }),
+  });
+}
+
+export function setDirectWebJoin(enabled: boolean): Promise<Pick<AdminSettings, 'directWebJoinEnabled'>> {
+  return requestJson<Pick<AdminSettings, 'directWebJoinEnabled'>>('/api/admin/settings/direct-web-join', {
     method: 'POST',
     body: JSON.stringify({ enabled }),
   });

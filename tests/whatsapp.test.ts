@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { type WASocket } from '@whiskeysockets/baileys';
 import {
+  addTrackedGroupUser,
   createConnectedServicesStarter,
   listTrackedGroupUsers,
   removeTrackedGroupUser,
@@ -213,4 +214,25 @@ test('tracked group user removal requires participant id', async () => {
     () => removeTrackedGroupUser(' ', { isConnected: true, watchGroupId: '123@g.us', socket: { groupParticipantsUpdate: async () => undefined } }),
     /participantId is required/,
   );
+});
+
+test('adds tracked group user to WATCH_GROUP_ID', async () => {
+  const updates: Array<{ groupId: string; users: string[]; action: string }> = [];
+  const result = await addTrackedGroupUser('15551234567@s.whatsapp.net', {
+    isConnected: true,
+    watchGroupId: '123@g.us',
+    socket: {
+      groupParticipantsUpdate: async (groupId: string, users: string[], action: string) => {
+        updates.push({ groupId, users, action });
+        return [{ status: '200', jid: users[0], content: {} }];
+      },
+    },
+  });
+
+  assert.deepEqual(updates, [{
+    groupId: '123@g.us',
+    users: ['15551234567@s.whatsapp.net'],
+    action: 'add',
+  }]);
+  assert.deepEqual(result, { status: '200', jid: '15551234567@s.whatsapp.net' });
 });
