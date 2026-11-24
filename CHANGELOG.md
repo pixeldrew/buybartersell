@@ -1,3 +1,15 @@
+# [1.5.0](https://github.com/pixeldrew/buybartersell/compare/v1.4.0...v1.5.0) (2026-11-24)
+
+
+### Bug Fixes
+
+* **listings:** accept media-only listing threads ([2208463](https://github.com/pixeldrew/buybartersell/commit/2208463b23f3bd09ccc96ccdbaf98ba20a960940))
+
+
+### Features
+
+* **logging:** add timestamps and context to server logs ([48cde60](https://github.com/pixeldrew/buybartersell/commit/48cde606bb8f29432c943e4e0c6692782f658764))
+
 # [1.4.0](https://github.com/pixeldrew/buybartersell/compare/v1.3.0...v1.4.0) (2026-06-02)
 
 
