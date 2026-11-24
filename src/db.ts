@@ -122,7 +122,7 @@ const ListingThreadSchema = new Schema<IListingThread>({
   startTimestamp:  { type: Date, required: true, index: true },
   endTimestamp:    { type: Date, required: true, index: true },
   messageIds:      { type: [String], default: [] },
-  combinedText:    { type: String, required: true, default: '' },
+  combinedText:    { type: String, default: '' },
   mediaCount:      { type: Number, required: true, default: 0 },
   mediaFiles:      { type: [MediaFileSchema], default: [] },
   links:           { type: [String], default: [] },
