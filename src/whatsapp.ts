@@ -127,7 +127,9 @@ export async function connectToWhatsApp(): Promise<void> {
   sock.ev.on('messages.upsert', ({ messages, type }) => {
     if (type !== 'notify') return;
     for (const msg of messages) {
-      handleIncomingMessage(msg).catch(console.error);
+      handleIncomingMessage(msg).catch(err => {
+        console.error('[moderation] Error handling message:', err);
+      });
     }
   });
 
@@ -428,7 +430,7 @@ async function handleIncomingMessage(msg: proto.IWebMessageInfo): Promise<void> 
     return;
   }
 
-  console.log(`[moderation] Invite link detected from ${senderJid} in ${metadata.subject}. Deleting and removing.`);
+  console.log(`[moderation] Invite link detected from ${senderJid} in ${metadata.subject}. Deleting.`);
 
   // Delete the message
   await sock.sendMessage(groupJid, {

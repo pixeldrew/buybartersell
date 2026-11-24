@@ -1,3 +1,4 @@
+import './logging.ts';
 import './env.ts';
 import express from 'express';
 import { connectToWhatsApp } from './whatsapp.ts';
