@@ -4,6 +4,7 @@ import {
   DirectJoinPublicError,
   directJoinRateLimiter,
   directJoinService,
+  verifyTurnstileToken,
 } from './direct-join.ts';
 import { approveRequest, rejectRequest, resolveToken } from './join-approval.ts';
 
@@ -46,34 +47,55 @@ function joinTokenErrorMessage(err: unknown): { status: number; message: string 
   return { status: code === 'NOT_FOUND' ? 404 : 410, message };
 }
 
-export async function getJoinTokenStatus(token: string): Promise<JoinJsonResponse> {
+export async function getJoinTokenStatus(token: string, config = { siteKey: process.env.TURNSTILE_SITE_KEY, secretKey: process.env.TURNSTILE_SECRET_KEY }): Promise<JoinJsonResponse> {
   try {
     await resolveToken(token);
-    return { status: 200, body: { ok: true } };
+    if (!config.siteKey || !config.secretKey) return { status: 503, body: { ok: false, error: 'Security check is currently unavailable.' } };
+    return { status: 200, body: { ok: true, turnstileSiteKey: config.siteKey } };
   } catch (err) {
     const { status, message } = joinTokenErrorMessage(err);
     return { status, body: { ok: false, error: message } };
   }
 }
 
-export async function acceptJoinToken(token: string): Promise<JoinJsonResponse> {
+interface TokenVerificationDeps {
+  secretKey: string | undefined;
+  verify: typeof verifyTurnstileToken;
+}
+
+async function decideJoinToken(
+  token: string, body: unknown, ipAddress: string, action: 'accept' | 'reject',
+  deps: TokenVerificationDeps,
+): Promise<JoinJsonResponse> {
+  const captcha = (body as { turnstileToken?: unknown } | null)?.turnstileToken;
+  if (typeof captcha !== 'string' || !captcha.trim()) {
+    return { status: 400, body: { ok: false, error: 'Complete the security check and try again.' } };
+  }
+  if (!deps.secretKey) return { status: 503, body: { ok: false, error: 'Security check is currently unavailable.' } };
   try {
-    await approveRequest(token);
-    return { status: 200, body: { ok: true, outcome: 'approved' } };
+    if (!await deps.verify(captcha.trim(), deps.secretKey, ipAddress)) {
+      return { status: 400, body: { ok: false, error: 'The security check expired or was invalid. Try again.' } };
+    }
+  } catch (err) {
+    console.error('[join] Turnstile verification failed:', err);
+    return { status: 503, body: { ok: false, error: 'Unable to verify the security check. Try again shortly.' } };
+  }
+  try {
+    if (action === 'accept') await approveRequest(token);
+    else await rejectRequest(token);
+    return { status: 200, body: { ok: true, outcome: action === 'accept' ? 'approved' : 'declined' } };
   } catch (err) {
     const { status, message } = joinTokenErrorMessage(err);
     return { status, body: { ok: false, error: message } };
   }
 }
 
-export async function rejectJoinToken(token: string): Promise<JoinJsonResponse> {
-  try {
-    await rejectRequest(token);
-    return { status: 200, body: { ok: true, outcome: 'declined' } };
-  } catch (err) {
-    const { status, message } = joinTokenErrorMessage(err);
-    return { status, body: { ok: false, error: message } };
-  }
+export async function acceptJoinToken(token: string, body: unknown, ipAddress: string, deps: TokenVerificationDeps = { secretKey: process.env.TURNSTILE_SECRET_KEY, verify: verifyTurnstileToken }): Promise<JoinJsonResponse> {
+  return decideJoinToken(token, body, ipAddress, 'accept', deps);
+}
+
+export async function rejectJoinToken(token: string, body: unknown, ipAddress: string, deps: TokenVerificationDeps = { secretKey: process.env.TURNSTILE_SECRET_KEY, verify: verifyTurnstileToken }): Promise<JoinJsonResponse> {
+  return decideJoinToken(token, body, ipAddress, 'reject', deps);
 }
 
 export function parseDirectJoinBody(body: unknown): DirectJoinBody {
@@ -162,12 +184,12 @@ joinRouter.get('/:token/status', async (req: Request, res: Response) => {
 });
 
 joinRouter.post('/:token/accept', async (req: Request, res: Response) => {
-  const result = await acceptJoinToken(req.params['token'] as string);
+  const result = await acceptJoinToken(req.params['token'] as string, req.body, req.ip ?? req.socket.remoteAddress ?? 'unknown');
   res.status(result.status).json(result.body);
 });
 
 joinRouter.post('/:token/reject', async (req: Request, res: Response) => {
-  const result = await rejectJoinToken(req.params['token'] as string);
+  const result = await rejectJoinToken(req.params['token'] as string, req.body, req.ip ?? req.socket.remoteAddress ?? 'unknown');
   res.status(result.status).json(result.body);
 });
 

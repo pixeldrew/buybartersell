@@ -28,12 +28,12 @@ async function createToken(): Promise<string> {
   return match[1] as string;
 }
 
-test('join status returns ok for a valid token', async () => {
+test('join status returns the Turnstile site key for a valid token', async () => {
   const { restore } = stubJoinRequestStore();
   try {
     const token = await createToken();
 
-    assert.deepEqual(await getJoinTokenStatus(token), { status: 200, body: { ok: true } });
+    assert.deepEqual(await getJoinTokenStatus(token, { siteKey: 'site-key', secretKey: 'secret' }), { status: 200, body: { ok: true, turnstileSiteKey: 'site-key' } });
   } finally {
     restore();
   }
@@ -71,11 +71,12 @@ test('join accept and reject endpoints return json outcomes', async () => {
     const acceptToken = await createToken();
     const rejectToken = await createToken();
 
-    assert.deepEqual(await acceptJoinToken(acceptToken), {
+    const verify = { secretKey: 'secret', verify: async () => true };
+    assert.deepEqual(await acceptJoinToken(acceptToken, { turnstileToken: 'captcha' }, '127.0.0.1', verify), {
       status: 200,
       body: { ok: true, outcome: 'approved' },
     });
-    assert.deepEqual(await rejectJoinToken(rejectToken), {
+    assert.deepEqual(await rejectJoinToken(rejectToken, { turnstileToken: 'captcha' }, '127.0.0.1', verify), {
       status: 200,
       body: { ok: true, outcome: 'declined' },
     });
@@ -147,4 +148,17 @@ test('direct join submission applies throttling before service execution', async
     body: { ok: false, error: 'Too many requests. Try again later.' },
   });
   assert.equal(submissions, 0);
+});
+
+
+test('join decisions require a valid Turnstile token before changing the request', async () => {
+  const { restore } = stubJoinRequestStore();
+  try {
+    const token = await createToken();
+    const verify = { secretKey: 'secret', verify: async () => false };
+    assert.equal((await acceptJoinToken(token, {}, '127.0.0.1', verify)).status, 400);
+    assert.equal((await rejectJoinToken(token, { turnstileToken: 'invalid' }, '127.0.0.1', verify)).status, 400);
+    assert.equal((await getJoinTokenStatus(token, { siteKey: 'site-key', secretKey: 'secret' })).status, 200);
+    assert.equal((await acceptJoinToken(token, { turnstileToken: 'captcha' }, '127.0.0.1', { secretKey: undefined, verify: async () => true })).status, 503);
+  } finally { restore(); }
 });

@@ -65,8 +65,8 @@ component utilities are included in built CSS.
 | `MONGODB_URI` | `mongodb://localhost:27017/whatsapp-stats` | MongoDB connection string |
 | `WATCH_GROUP_ID` | unset | Group JID to watch, e.g. `123456789@g.us` |
 | `APP_URL` | `http://localhost:3000` | Fallback public app URL for generated join links |
-| `TURNSTILE_SITE_KEY` | unset | Cloudflare Turnstile public site key for direct web joins |
-| `TURNSTILE_SECRET_KEY` | unset | Cloudflare Turnstile server validation secret for direct web joins |
+| `TURNSTILE_SITE_KEY` | unset | Cloudflare Turnstile public site key for join pages |
+| `TURNSTILE_SECRET_KEY` | unset | Cloudflare Turnstile server validation secret for join pages |
 | `TRUST_PROXY` | unset | Set to `true` behind a trusted reverse proxy so throttling uses the forwarded client IP |
 | `MEDIA_DIR` | `./media` | Directory for downloaded WhatsApp media |
 | `MEDIA_ALBUM_COLLATE_MS` | `1500` | Delay used to collate multi-media album messages |
@@ -180,6 +180,7 @@ The setting is saved in MongoDB's `admin_settings` collection and defaults to
 disabled.
 
 When enabled, join requests for `WATCH_GROUP_ID` receive a `/join/:token` link.
+Both Turnstile keys must be configured to accept or decline a request through this link.
 Accepting the terms approves the WhatsApp join request; declining rejects it.
 When disabled, the bot ignores join requests so WhatsApp or human admins can
 handle them.

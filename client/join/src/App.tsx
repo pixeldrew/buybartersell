@@ -16,8 +16,8 @@ import { Label } from '@buybartersell/ui/components/ui/label';
 
 type JoinState =
   | { status: 'loading' }
-  | { status: 'ready'; token: string }
-  | { status: 'submitting'; token: string; action: 'accept' | 'reject' }
+  | { status: 'ready'; token: string; siteKey: string; message?: string }
+  | { status: 'submitting'; token: string; siteKey: string; action: 'accept' | 'reject' }
   | { status: 'approved' }
   | { status: 'declined' }
   | { status: 'error'; message: string };
@@ -58,6 +58,8 @@ export function App() {
 function TokenJoinApp() {
   const [state, setState] = useState<JoinState>({ status: 'loading' });
   const token = useMemo(readTokenFromPath, []);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileReset, setTurnstileReset] = useState(0);
 
   useEffect(() => {
     if (!token) {
@@ -66,20 +68,28 @@ function TokenJoinApp() {
     }
 
     requestJson(`/api/join/${token}/status`)
-      .then(() => setState({ status: 'ready', token }))
+      .then((response) => {
+        if (!response.turnstileSiteKey) throw new Error('Security check is currently unavailable.');
+        setState({ status: 'ready', token, siteKey: response.turnstileSiteKey });
+      })
       .catch((err) => setState({ status: 'error', message: (err as Error).message }));
   }, [token]);
 
   async function submit(action: 'accept' | 'reject') {
-    if (state.status !== 'ready') return;
-    setState({ status: 'submitting', token: state.token, action });
+    if (state.status !== 'ready' || !turnstileToken) return;
+    const { token, siteKey } = state;
+    setState({ status: 'submitting', token, siteKey, action });
     try {
       const response = await requestJson(`/api/join/${state.token}/${action === 'accept' ? 'accept' : 'reject'}`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ turnstileToken }),
       });
       setState({ status: response.outcome === 'approved' ? 'approved' : 'declined' });
     } catch (err) {
-      setState({ status: 'error', message: (err as Error).message });
+      setTurnstileToken('');
+      setTurnstileReset((value) => value + 1);
+      setState({ status: 'ready', token, siteKey, message: (err as Error).message });
     }
   }
 
@@ -89,6 +99,11 @@ function TokenJoinApp() {
       {state.status === 'ready' || state.status === 'submitting' ? (
         <TermsCard
           submitting={state.status === 'submitting' ? state.action : null}
+          siteKey={state.siteKey}
+          turnstileToken={turnstileToken}
+          resetKey={turnstileReset}
+          onToken={setTurnstileToken}
+          message={state.status === 'ready' ? state.message : undefined}
           onAccept={() => void submit('accept')}
           onReject={() => void submit('reject')}
         />
@@ -257,10 +272,16 @@ function TurnstileWidget({ siteKey, resetKey, onToken }: { siteKey: string; rese
 
 function TermsCard({
   submitting,
+  siteKey, turnstileToken, resetKey, onToken, message,
   onAccept,
   onReject,
 }: {
   submitting: 'accept' | 'reject' | null;
+  siteKey: string;
+  turnstileToken: string;
+  resetKey: number;
+  onToken: (token: string) => void;
+  message?: string;
   onAccept: () => void;
   onReject: () => void;
 }) {
@@ -272,13 +293,15 @@ function TermsCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <TermsContent />
+        <TurnstileWidget siteKey={siteKey} resetKey={resetKey} onToken={onToken} />
+        {message ? <Alert variant="destructive"><AlertCircleIcon data-icon="inline-start" /><AlertTitle>Request not completed</AlertTitle><AlertDescription>{message}</AlertDescription></Alert> : null}
       </CardContent>
       <CardFooter className="flex flex-col gap-3 sm:flex-row">
-        <Button className="w-full" onClick={onAccept} disabled={submitting !== null}>
+        <Button className="w-full" onClick={onAccept} disabled={submitting !== null || !turnstileToken}>
           {submitting === 'accept' ? <Loader2Icon data-icon="inline-start" className="animate-spin" /> : null}
           Accept & Join
         </Button>
-        <Button className="w-full" variant="secondary" onClick={onReject} disabled={submitting !== null}>
+        <Button className="w-full" variant="secondary" onClick={onReject} disabled={submitting !== null || !turnstileToken}>
           {submitting === 'reject' ? <Loader2Icon data-icon="inline-start" className="animate-spin" /> : null}
           Decline
         </Button>
