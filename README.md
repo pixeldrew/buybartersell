@@ -153,7 +153,7 @@ events for that group and stores messages in MongoDB. It:
 - collates multi-media WhatsApp albums into a single database message entry
 - stores quoted-message links when available
 
-The analyzer classifies unanalyzed messages from the last hour into structured
+The analyzer classifies all unanalyzed listing threads into structured
 gear fields and a sentiment of `selling`, `wanted`, `info`, or `unrelated`.
 Analysis failures are logged and skipped instead of being saved as unrelated.
 

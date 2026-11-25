@@ -1,5 +1,5 @@
 import {
-  getUnanalyzedListingThreadsFromLastHour,
+  getUnanalyzedListingThreads,
   updateAnalysisForMessages,
   updateListingThreadAnalysis,
   type GearAnalysis,
@@ -115,8 +115,8 @@ export async function analyzeMessage(text: string, mediaCount = 0): Promise<Gear
 // ─── Batch runner ─────────────────────────────────────────────────────────────
 
 export async function runBatchAnalysis(): Promise<void> {
-  const listingThreads = await getUnanalyzedListingThreadsFromLastHour();
-  console.log(`[analyzer] ${listingThreads.length} unanalyzed listing thread(s) in the last hour`);
+  const listingThreads = await getUnanalyzedListingThreads();
+  console.log(`[analyzer] ${listingThreads.length} unanalyzed listing thread(s)`);
   for (const thread of listingThreads) {
     try {
       const analysis = await analyzeMessage(thread.combinedText, thread.mediaCount);

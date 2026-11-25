@@ -248,10 +248,9 @@ export async function upsertListingThreadForMessage(data: {
   await existing.save();
 }
 
-export async function getUnanalyzedListingThreadsFromLastHour(): Promise<IListingThread[]> {
-  const since = new Date(Date.now() - 60 * 60 * 1000);
+export async function getUnanalyzedListingThreads(): Promise<IListingThread[]> {
   return ListingThread
-    .find({ status: 'open', analysis: null, endTimestamp: { $gte: since } })
+    .find({ status: 'open', analysis: null })
     .sort({ endTimestamp: 1 })
     .lean() as unknown as IListingThread[];
 }
