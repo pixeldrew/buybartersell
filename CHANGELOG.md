@@ -1,3 +1,15 @@
+# [1.6.0](https://github.com/pixeldrew/buybartersell/compare/v1.5.0...v1.6.0) (2026-11-25)
+
+
+### Bug Fixes
+
+* **analyzer:** process the full pending backlog ([ac08bff](https://github.com/pixeldrew/buybartersell/commit/ac08bff6c664a7c63be0469e66c4d5389d054bef))
+
+
+### Features
+
+* **join:** protect invitation decisions with Turnstile ([8cdd9a0](https://github.com/pixeldrew/buybartersell/commit/8cdd9a03e98d8d1cdbcbb81bd89a023a2286adae))
+
 # [1.5.0](https://github.com/pixeldrew/buybartersell/compare/v1.4.0...v1.5.0) (2026-11-24)
 
 
